@@ -1,5 +1,6 @@
 import { useParams, Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '@/contexts/AuthContext'
 import api from '@/lib/api'
 import type { Question, Answer } from '@/types'
 import { AnswerCard } from '@/components/AnswerCard'
@@ -13,6 +14,11 @@ async function fetchQuestion(id: string) {
 async function fetchAnswers(questionId: string) {
   const { data } = await api.get(`/questions/${questionId}/answers`)
   return data as Answer[]
+}
+
+async function voteQuestion(questionId: string, value: 1 | -1) {
+  const { data } = await api.post(`/questions/${questionId}/vote`, { value })
+  return data
 }
 
 type QuestionStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
@@ -39,6 +45,13 @@ export function QuestionDetailPage() {
   })
 
   const hasAcceptedAnswer = answers.some(a => a.isAccepted)
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  const voteMutation = useMutation({
+    mutationFn: ({ value }: { value: 1 | -1 }) => voteQuestion(id, value),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['question', id] }),
+  })
 
   if (qLoading) {
     return (
@@ -96,6 +109,32 @@ export function QuestionDetailPage() {
         {/* Meta */}
         <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 border-t pt-3">
           <span>Asked by {authorName}</span>
+
+          {/* Vote buttons */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => voteMutation.mutate({ value: 1 })}
+              disabled={voteMutation.isPending || questionAuthorId === user?._id}
+              className="p-0.5 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              title={questionAuthorId === user?._id ? 'Cannot vote on your own question' : 'Upvote'}
+            >
+              <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" /></svg>
+            </button>
+
+            <span className={`text-xs font-medium min-w-[1.25rem] text-center ${question.upvotes - question.downvotes > 0 ? 'text-green-600' : question.upvotes - question.downvotes < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+              {question.upvotes - question.downvotes}
+            </span>
+
+            <button
+              onClick={() => voteMutation.mutate({ value: -1 })}
+              disabled={voteMutation.isPending || questionAuthorId === user?._id}
+              className="p-0.5 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              title={questionAuthorId === user?._id ? 'Cannot vote on your own question' : 'Downvote'}
+            >
+              <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+          </div>
+
           <span>·</span>
           <span>{new Date(question.createdAt).toLocaleDateString()}</span>
           {question.tags?.length > 0 && (

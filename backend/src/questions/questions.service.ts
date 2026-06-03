@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model, Types } from 'mongoose'
 import { Question, QuestionDocument } from './schemas/question.schema'
 import { CreateQuestionDto } from './dtos/create-question.dto'
+import { VoteQuestionDto } from './dtos/vote-question.dto'
 import { FaqsService } from '../faqs/faqs.service'
 import { AiMatcherService } from './ai-matcher.service'
 import { IntentDetectorService } from './intent/intent-detector.service'
@@ -52,10 +53,10 @@ export class QuestionsService {
     return null
   }
 
-  async create(dto: CreateQuestionDto, userId: string): Promise<{ questionId: string; message: string }> {
+  async create(dto: CreateQuestionDto, userId: string, aiMatchFaqId?: string): Promise<{ questionId: string; message: string }> {
     const question = new this.questionModel({
       ...dto,
-      askedBy: new Types.ObjectId(userId),
+      askedBy: new Types.ObjectId(userId),`n      aiMatchFaqId: aiMatchFaqId ? new Types.ObjectId(aiMatchFaqId) : undefined,
       status: 'open',
     })
     const saved = await question.save()
@@ -112,6 +113,46 @@ export class QuestionsService {
 
     if (!question) throw new NotFoundException('Question not found')
     return question
+  }
+
+  async vote(questionId: string, voterId: string, dto: VoteQuestionDto): Promise<{ action: string; upvotes: number; downvotes: number }> {
+    const voterOid = new Types.ObjectId(voterId)
+    const newValue: 1 | -1 = dto.value
+
+    const question = await this.questionModel.findById(questionId).exec()
+    if (!question) throw new NotFoundException('Question not found')
+
+    // Prevent self-voting
+    if (question.askedBy.toString() === voterId) {
+      throw new BadRequestException('Cannot vote on your own question.')
+    }
+
+    const existing = question.votes.find((v) => v.userId.toString() === voterId)
+
+    if (existing) {
+      if (existing.value === newValue) {
+        // Same direction — remove vote (toggle off)
+        question.votes = question.votes.filter((v) => v.userId.toString() !== voterId)
+        if (newValue === 1) question.upvotes -= 1
+        else question.downvotes -= 1
+        await question.save()
+        return { action: 'removed', upvotes: question.upvotes, downvotes: question.downvotes }
+      } else {
+        // Opposite direction — flip vote
+        existing.value = newValue
+        if (newValue === 1) { question.upvotes += 1; question.downvotes -= 1 }
+        else { question.downvotes += 1; question.upvotes -= 1 }
+        await question.save()
+        return { action: 'flipped', upvotes: question.upvotes, downvotes: question.downvotes }
+      }
+    } else {
+      // New vote
+      question.votes.push({ userId: voterOid, value: newValue })
+      if (newValue === 1) question.upvotes += 1
+      else question.downvotes += 1
+      await question.save()
+      return { action: 'added', upvotes: question.upvotes, downvotes: question.downvotes }
+    }
   }
 
   async checkAiMatch(dto: CreateQuestionDto): Promise<{ aiMatch: boolean; faq?: { id: string; title: string; confidence: number } }> {

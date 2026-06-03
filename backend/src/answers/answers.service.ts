@@ -61,13 +61,19 @@ export class AnswersService {
     }
   }
 
-  async vote(answerId: string, voterId: string, dto: VoteDto): Promise<{ action: string; upvotes: number; downvotes: number }> {
+  async vote(answerId: string, voterId: string, questionId: string, dto: VoteDto): Promise<{ action: string; upvotes: number; downvotes: number }> {
     const voterOid = new Types.ObjectId(voterId)
     const newValue: 1 | -1 = dto.value
 
     // Check answer exists and voter isn't self-voting
     const answer = await this.answerModel.findById(answerId).exec()
     if (!answer) throw new NotFoundException('Answer not found')
+
+    // Ensure the answer belongs to the question being voted on
+    if (answer.questionId.toString() !== questionId) {
+      throw new ForbiddenException('Answer does not belong to this question.')
+    }
+
     if (answer.contributedBy.toString() === voterId) {
       throw new BadRequestException('Cannot vote on your own answer.')
     }

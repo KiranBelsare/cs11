@@ -95,6 +95,7 @@ export interface Flag {
   targetId: string
   targetType: 'faq' | 'question' | 'answer'
   reason: string
+  comment?: string
   status: FlagStatus
   reviewHistory: FlagReviewEntry[]
   createdAt: string

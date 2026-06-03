@@ -1,6 +1,14 @@
 # CrowdFAQ — Project Context
 
-> Context for future sessions. Last updated: 2026-06-01.
+> Context for future sessions. Last updated: 2026-06-03 (question voting + flag/report flow).
+>
+> **Quick orientation for new sessions:**
+> - `CURRENT_FEATURES.md` — complete inventory of what works right now
+> - `PHASE2_CHECKLIST.md` — what is pending (partial, Phase 2, not yet built)
+> - `FUTURE_FEATURES.md` — ideas and enhancements for later
+> - `memory/` — daily session logs
+> - `FRONTEND_ISSUES.md` — original 2026-05-29 issue list (mostly resolved)
+> - `backend/CHUNK_ISSUES.md` — backend known issues log
 
 ---
 
@@ -24,6 +32,9 @@ faq-query-resolution-system/
 │   ├── 2026-06-01.md
 │   └── FRONTEND_AUDIT_2026-06-01.md
 ├── .gitignore
+├── CURRENT_FEATURES.md # Complete inventory of live features (updated 2026-06-03)
+├── PHASE2_CHECKLIST.md # Pending items: partial, Phase 2, and not-yet-built
+├── FUTURE_FEATURES.md  # Ideas and enhancements for later
 ├── CONTEXT.md         # This file
 ├── FRONTEND_ISSUES.md # Original 2026-05-29 issue list
 └── seed-document-status.js
@@ -45,9 +56,21 @@ See `memory/FRONTEND_AUDIT_2026-06-01.md` for the full fix log.
 - `#25` — `admin.faqs.tsx` category cell needs defensive type check
 - `#22` — "Community Member" fallback — intentional, mark as won't-fix
 
-### Backend ⚠️ — Not yet audited this session
+### Backend ✅ — Audit Complete (2026-06-03)
 
-Next: audit `backend/CHUNK_ISSUES.md` and do a full backend code review.
+TypeScript clean: `npx tsc --noEmit` passes with zero errors.
+
+**5 issues resolved:**
+- **Issue 16** — Duplicate `promote-faq` route removed from `AnswersController` (2026-06-03)
+- **Issue 18** — `vote()` now validates `answer.questionId` ownership (2026-06-03)
+- **forceSubmit (Medium)** — type corrected from `string` to `boolean` (2026-06-03)
+- **Issue 19** — `AiMatcherService` graceful-degradation confirmed correct by design (2026-06-03)
+- **Issue 5** — `QuestionsService.vote()` + `POST /questions/:id/vote` endpoint implemented (2026-06-03)
+
+**Known open issues:**
+- Issue 3 — `aiMatchFaqId` not saved on create path (Phase 2)
+- Issue 4 — `rebuild-index` AI endpoint needs implementation (AI side)
+- Issue 17 — E2E tests need in-memory MongoDB fixture
 
 ---
 

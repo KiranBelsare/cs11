@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useFaq } from '@/hooks/useFaq'
+import { FlagButton } from '@/components/FlagButton'
 import api from '@/lib/api'
 
 function isMarkdown(text: string): boolean {
@@ -216,6 +217,9 @@ export function FaqDetailPage() {
         {faq.tags.map((tag) => (
           <span key={tag} className="px-2 py-0.5 rounded bg-gray-100 text-gray-500">#{tag}</span>
         ))}
+        <span className="ml-auto">
+          <FlagButton targetId={faq._id} targetType="faq" />
+        </span>
       </div>
 
       {/* Body */}

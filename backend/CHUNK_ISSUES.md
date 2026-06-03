@@ -21,9 +21,10 @@ Updated after staleness tracking implementation (end of Chunk 5).
 
 ## Issue 3 — `aiMatchFaqId` not recorded on `forceSubmit`
 **File:** `src/questions/question.schema.ts`
-**Status: Open**
+**Status: Open (Phase 2)**
 - `aiMatchFaqId` is null when student forces submission
 - `aiMatchRate` analytics will be undercounted as a result
+- **Note (2026-06-03):** forceSubmit query param type corrected from string to boolean in questions.controller.ts — no functional change (runtime coercion already worked via ValidationPipe transform: true), but type is now accurate
 - Revisit in Phase 2
 
 ---
@@ -132,24 +133,43 @@ Updated after staleness tracking implementation (end of Chunk 5).
 ---
 
 ## Issue 15 — Promote-to-FAQ endpoint missing from backend
-**File:** `src/routes/questions.tsx` (backend), `src/questions/questions.controller.ts`
+**File:** `src/questions/questions.controller.ts`
 **Status: ✅ Resolved (Chunk 10)**
-- `POST /questions/:id/promote-faq` is implemented in `AnswersController` at `src/answers/answers.controller.ts`
-- Route: `POST /api/questions/:questionId/answers/promote-faq`
-- Body: `{ answerId: string, title: string, category: string, tags?: string[] }`
+- `POST /questions/:id/promote-faq` implemented on `QuestionsController` — matches frontend URL directly
+- Body: `{ answerId?: string, title: string, category: string, tags?: string[] }`
+- `answerId` optional; falls back to the accepted answer if omitted
 - Creates a new FAQ (published), marks answer as `isOfficialAdminAnswer: true`, closes the question
 - Calls AI rebuild-index after success (fire-and-forget)
-- **Note:** Frontend `QueryCard.tsx` promoted modal currently hits `POST /questions/:id/promote-faq` directly — the backend endpoint is at `/answers/promote-faq` with answerId in body. These need to be reconciled (either move endpoint to QuestionsController or update frontend URL). See Issue 17.
+- `AnswersController` previously had a duplicate at `POST /questions/:questionId/answers/promote-faq` — removed 2026-06-03 (see Issue 16)
 
 ---
 
-## Issue 16 — `promote-faq` frontend URL mismatch
-**File:** `frontend/src/components/admin/QueryCard.tsx`, `src/answers/answers.controller.ts`
-**Status: Open
-- Frontend `QueryCard.tsx` calls `POST /questions/${item.questionId}/promote-faq`
-- Backend `AnswersController` mounts the endpoint at `POST /questions/:questionId/answers/promote-faq` (nested under answers router)
-- Two fix options: (a) add a controller on `QuestionsController` at `/questions/:id/promote-faq`, or (b) update frontend to call `/questions/${item.questionId}/answers/promote-faq` with `answerId` in body
-- Recommended: option (a) — add a direct `/questions/:id/promote-faq` route on `QuestionsController` so the frontend call works unchanged
+## Issue 16 — Duplicate `promote-faq` route on `AnswersController`
+**File:** `src/answers/answers.controller.ts`, `src/questions/questions.controller.ts`
+**Status: ✅ Resolved (2026-06-03)**
+- `QuestionsController` already had `POST /questions/:id/promote-faq` — matching frontend URL
+- `AnswersController` had a second `POST /questions/:questionId/answers/promote-faq` — same handler, never called by frontend
+- **Fix:** Removed the duplicate route and unused `AdminGuard` import from `AnswersController`
+- `QuestionsController` remains the sole active endpoint
+
+---
+
+
+
+## Issue 19 — AiMatcherService graceful-degradation design observation
+**File:** src/questions/ai-matcher.service.ts
+**Status: Not a bug (design)**
+- When AI service is unreachable, catch returns { matched: false } — question proceeds to MongoDB for community answering (correct by design)
+- When AI response is malformed, matches[0] is undefined, 	op.confidence is undefined, comparison returns alse — question saved (correct by design)
+- Intentional fault tolerance: the community is the fallback when AI fails
+- No code change needed
+## Issue 18 — `vote()` missing `questionId` ownership check
+**File:** `src/answers/answers.service.ts`, `src/answers/answers.controller.ts`
+**Status: ✅ Resolved (2026-06-03)**
+- `AnswersController.vote()` accepted `questionId` in URL but never passed it to the service
+- Service's `vote()` method never validated that the answer's `questionId` matched the URL param
+- Malicious user could vote on any answer from any question if they knew the `answerId`
+- **Fix:** `vote()` service method now takes `questionId` param and validates `answer.questionId.toString() === questionId` before allowing the vote; throws `ForbiddenException` on mismatch
 
 ---
 

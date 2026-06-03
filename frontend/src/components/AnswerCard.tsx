@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import type { Answer } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
+import { FlagButton } from './FlagButton'
 
 interface AnswerCardProps {
   answer: Answer
@@ -102,16 +103,21 @@ export function AnswerCard({ answer, questionId, questionAuthorId, hasAcceptedAn
           </span>
         </div>
 
-        {/* Accept button */}
-        {canAccept && (
-          <button
-            onClick={() => acceptMutation.mutate()}
-            disabled={acceptMutation.isPending}
-            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50 transition-colors"
-          >
-            Accept this answer
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {/* Accept button */}
+          {canAccept && (
+            <button
+              onClick={() => acceptMutation.mutate()}
+              disabled={acceptMutation.isPending}
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50 transition-colors"
+            >
+              Accept this answer
+            </button>
+          )}
+
+          {/* Flag button */}
+          <FlagButton targetId={answer._id} targetType="answer" />
+        </div>
       </div>
     </div>
   )

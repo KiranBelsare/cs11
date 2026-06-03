@@ -10,6 +10,7 @@ import { AdminPage } from './admin'
 import { AdminQueriesPage } from './admin.queries'
 import { AdminFaqsPage } from './admin.faqs'
 import { AdminAnalyticsPage } from './admin.analytics'
+import { AdminFlagsPage } from './admin.flags'
 import { Navbar } from '@/components/Navbar'
 
 // ---- Guard helpers ----
@@ -135,6 +136,13 @@ const adminAnalyticsRoute = createRoute({
   component: () => <AdminAnalyticsPage />,
 })
 
+const adminFlagsRoute = createRoute({
+  getParentRoute: () => adminLayoutRoute,
+  path: 'flags',
+  beforeLoad: () => requireAdmin(),
+  component: () => <AdminFlagsPage />,
+})
+
 // ---- Route tree ----
 
 const routeTree = rootRoute.addChildren([
@@ -150,6 +158,7 @@ const routeTree = rootRoute.addChildren([
   adminQueriesRoute,
   adminFaqsRoute,
   adminAnalyticsRoute,
+  adminFlagsRoute,
 ])
 
 export const router = createRouter({ routeTree })

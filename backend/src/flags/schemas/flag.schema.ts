@@ -17,6 +17,9 @@ export class Flag {
   @Prop({ required: true })
   reason: string
 
+  @Prop({ required: false })
+  comment?: string
+
   @Prop({ required: true, enum: ['pending', 'reviewed', 'dismissed', 'resolved'], default: 'pending' })
   status: string
 
