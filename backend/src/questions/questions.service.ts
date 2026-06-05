@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common'
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model, Types } from 'mongoose'
 import { Question, QuestionDocument } from './schemas/question.schema'
@@ -8,6 +8,7 @@ import { FaqsService } from '../faqs/faqs.service'
 import { AiMatcherService } from './ai-matcher.service'
 import { IntentDetectorService } from './intent/intent-detector.service'
 import { DocumentStatusService } from './document-status.service'
+import { EmbeddingsService } from '../ai/embeddings.service'
 
 export type AskResponse =
   | { questionId: string; message: string }
@@ -16,12 +17,15 @@ export type AskResponse =
 
 @Injectable()
 export class QuestionsService {
+  private readonly logger = new Logger(QuestionsService.name)
+
   constructor(
     @InjectModel(Question.name) private questionModel: Model<QuestionDocument>,
     private readonly aiMatcher: AiMatcherService,
     private readonly faqsService: FaqsService,
     private readonly intentDetector: IntentDetectorService,
     private readonly documentStatus: DocumentStatusService,
+    private readonly embeddingsService: EmbeddingsService,
   ) {}
 
   /**
@@ -56,10 +60,23 @@ export class QuestionsService {
   async create(dto: CreateQuestionDto, userId: string, aiMatchFaqId?: string): Promise<{ questionId: string; message: string }> {
     const question = new this.questionModel({
       ...dto,
-      askedBy: new Types.ObjectId(userId),`n      aiMatchFaqId: aiMatchFaqId ? new Types.ObjectId(aiMatchFaqId) : undefined,
+      askedBy: new Types.ObjectId(userId),
+      aiMatchFaqId: aiMatchFaqId ? new Types.ObjectId(aiMatchFaqId) : undefined,
       status: 'open',
     })
     const saved = await question.save()
+
+    // Embed the question for future "similar questions" lookups (fire-and-forget)
+    const queryText = `${dto.title} ${dto.body}`
+    this.embeddingsService.generateEmbedding(queryText).then((embedding) => {
+      if (!embedding || embedding.length === 0) return
+      this.questionModel.findByIdAndUpdate(saved._id, { questionEmbedding: embedding }).catch((err) => {
+        this.logger.warn(`Failed to persist question embedding for ${saved._id}: ${err.message}`)
+      })
+    }).catch((err) => {
+      this.logger.warn(`Failed to generate question embedding for ${saved._id}: ${err.message}`)
+    })
+
     return { questionId: saved._id.toString(), message: 'Your question has been submitted to the community.' }
   }
 

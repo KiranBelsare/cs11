@@ -52,7 +52,7 @@ export function AskPage() {
   const submissionMutation = useMutation({
     mutationFn: (payload: SubmissionPayload) =>
       api.post<AskApiResponse>('/questions', payload),
-    onSuccess: (res) => {
+    onSuccess: (res, payload) => {
       const data = res.data
 
       // Shape 3 — intent detection
@@ -61,9 +61,10 @@ export function AskPage() {
         return
       }
 
-      // Shape 2 — AI match (payload set via onAiMatch callback from QuestionForm)
+      // Shape 2 — AI match: capture the original submission so reject → force-submit works
       if (data.aiMatch && data.faq) {
         setMatchedFaq(data.faq)
+        setPendingPayload(payload)
         return
       }
 

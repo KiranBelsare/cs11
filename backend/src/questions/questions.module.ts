@@ -1,6 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
-import { HttpModule } from '@nestjs/axios'
 import { Question, QuestionSchema } from './schemas/question.schema'
 import { DocumentStatus, DocumentStatusSchema } from './schemas/document-status.schema'
 import { QuestionsService } from './questions.service'
@@ -12,6 +11,7 @@ import { FaqsModule } from '../faqs/faqs.module'
 import { AnswersModule } from '../answers/answers.module'
 import { AdminModule } from '../admin/admin.module'
 import { MetaModule } from '../admin/meta.module'
+import { AiModule } from '../ai/ai.module'
 
 @Module({
   imports: [
@@ -19,11 +19,11 @@ import { MetaModule } from '../admin/meta.module'
       { name: Question.name, schema: QuestionSchema },
       { name: DocumentStatus.name, schema: DocumentStatusSchema },
     ]),
-    HttpModule,
     FaqsModule,
     forwardRef(() => AnswersModule),
     AdminModule,
     MetaModule,
+    forwardRef(() => AiModule),
   ],
   providers: [
     QuestionsService,

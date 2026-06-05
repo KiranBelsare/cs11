@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
-import { HttpModule } from '@nestjs/axios'
 import { Question, QuestionSchema } from '../questions/schemas/question.schema'
 import { Answer, AnswerSchema } from '../answers/answer.schema'
 import { FAQ, FaqSchema } from '../faqs/faq.schema'
@@ -10,6 +9,7 @@ import { AdminService } from './admin.service'
 import { AdminController } from './admin.controller'
 import { AnalyticsService } from './analytics.service'
 import { MetaModule } from './meta.module'
+import { AiModule } from '../ai/ai.module'
 
 @Module({
   imports: [
@@ -20,8 +20,8 @@ import { MetaModule } from './meta.module'
       { name: User.name, schema: UserSchema },
       { name: Category.name, schema: CategorySchema },
     ]),
-    HttpModule,
     MetaModule,
+    AiModule,
   ],
   providers: [AdminService, AnalyticsService],
   controllers: [AdminController],

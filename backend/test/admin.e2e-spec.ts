@@ -3,6 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common'
 import request = require('supertest')
 import { AppModule } from '../src/app.module'
 import { GlobalHttpExceptionFilter } from '../src/common/http-exception.filter'
+import { TestDatabase } from './setup-test-db'
 import { UsersService } from '../src/users/users.service'
 import { ROLES } from '../src/config/roles'
 
@@ -28,6 +29,8 @@ describe('Admin (e2e)', () => {
   const studentEmail = `student_admin${Date.now()}@test.com`
 
   beforeAll(async () => {
+    await TestDatabase.connect()
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile()
@@ -62,12 +65,12 @@ describe('Admin (e2e)', () => {
     const adminLogin = await request(app.getHttpServer())
       .post('/api/auth/login')
       .send({ email: adminEmail, password: 'Test@1234' })
-    adminToken = adminLogin.body.accessToken
+    adminToken = adminLogin.body.token
 
     const studentLogin = await request(app.getHttpServer())
       .post('/api/auth/login')
       .send({ email: studentEmail, password: 'Test@1234' })
-    studentToken = studentLogin.body.accessToken
+    studentToken = studentLogin.body.token
 
     // Student creates a question
     const qRes = await request(app.getHttpServer())
@@ -89,7 +92,8 @@ describe('Admin (e2e)', () => {
   })
 
   afterAll(async () => {
-    await app.close()
+    if (app) await app.close()
+    await TestDatabase.close()
   })
 
   // ── Admin guard tests ──────────────────────────────────────────────────────
@@ -172,7 +176,7 @@ describe('Admin (e2e)', () => {
 
   it('promote to FAQ: admin promotes resolved question → 201, question becomes closed', async () => {
     await request(app.getHttpServer())
-      .post(`/api/questions/${questionId}/answers/promote-faq`)
+      .post(`/api/questions/${questionId}/promote-faq`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
         answerId,

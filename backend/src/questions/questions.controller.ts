@@ -39,7 +39,7 @@ export class QuestionsController {
   ) {
     // forceSubmit bypasses intent and AI matching — save directly
     if (forceSubmit === true) {
-      const result = await this.questionsService.create(dto, req.user.userId, matchedFaqId)
+      const result = await this.questionsService.create(dto, req.user.userId)
       return { questionId: result.questionId, message: result.message }
     }
 
@@ -51,13 +51,15 @@ export class QuestionsController {
       return intentOrMatch
     }
 
-    // Shape 2 — AI match fired
+    // Shape 2 — AI match fired: save question with the matched FAQ ID
     if (intentOrMatch && 'aiMatch' in intentOrMatch) {
-      return intentOrMatch
+      const capturedFaqId = intentOrMatch.faq.id
+      const result = await this.questionsService.create(dto, req.user.userId, capturedFaqId)
+      return { questionId: result.questionId, message: result.message }
     }
 
     // Shape 1 — no intent, no match; persist the question
-    const result = await this.questionsService.create(dto, req.user.userId, matchedFaqId)
+    const result = await this.questionsService.create(dto, req.user.userId)
     return { questionId: result.questionId, message: result.message }
   }
 

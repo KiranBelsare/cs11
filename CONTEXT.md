@@ -1,14 +1,17 @@
 # CrowdFAQ — Project Context
 
-> Context for future sessions. Last updated: 2026-06-03 (question voting + flag/report flow).
->
-> **Quick orientation for new sessions:**
-> - `CURRENT_FEATURES.md` — complete inventory of what works right now
-> - `PHASE2_CHECKLIST.md` — what is pending (partial, Phase 2, not yet built)
-> - `FUTURE_FEATURES.md` — ideas and enhancements for later
-> - `memory/` — daily session logs
-> - `FRONTEND_ISSUES.md` — original 2026-05-29 issue list (mostly resolved)
-> - `backend/CHUNK_ISSUES.md` — backend known issues log
+> Context for future sessions. Last updated: 2026-06-04 18:48 GMT+5:30 (Ollama vector search complete; question embedding done).
+
+**Quick orientation for new sessions:**
+- `manual_checklist.md` — setup steps (Ollama install, env vars, rebuild-index)
+- `CURRENT_FEATURES.md` — complete inventory of what works right now
+- `PHASE2_CHECKLIST.md` — pending items
+- `FUTURE_FEATURES.md` — ideas and enhancements for later
+- `memory/` — daily session logs
+- `FRONTEND_ISSUES.md` — original 2026-05-29 issue list (mostly resolved)
+- `backend/CHUNK_ISSUES.md` — backend known issues log
+
+**Current work:** Migrating AI matching from Python FAISS to MERN-native Ollama + application-level cosine similarity. Phase 1–3 complete (schema, FAQ auto-indexing, question embedding). See `manual_checklist.md` to set up Ollama before testing.
 
 ---
 
@@ -26,14 +29,12 @@ Two repositories in one monorepo:
 
 ```
 faq-query-resolution-system/
-├── frontend/          # React SPA (this is where we work now)
+├── frontend/          # React SPA
 ├── backend/           # NestJS API
 ├── memory/            # Session memory and audit logs
-│   ├── 2026-06-01.md
-│   └── FRONTEND_AUDIT_2026-06-01.md
-├── .gitignore
-├── CURRENT_FEATURES.md # Complete inventory of live features (updated 2026-06-03)
-├── PHASE2_CHECKLIST.md # Pending items: partial, Phase 2, and not-yet-built
+├── manual_checklist.md # Manual setup steps (Ollama, env, rebuild-index)
+├── CURRENT_FEATURES.md # Complete inventory of live features
+├── PHASE2_CHECKLIST.md # Pending items
 ├── FUTURE_FEATURES.md  # Ideas and enhancements for later
 ├── CONTEXT.md         # This file
 ├── FRONTEND_ISSUES.md # Original 2026-05-29 issue list
@@ -42,34 +43,32 @@ faq-query-resolution-system/
 
 ---
 
-## Current State (as of 2026-06-01)
+## Current State (as of 2026-06-04)
 
-### Frontend ✅ — Audit Complete (22/25 fixed)
+### Frontend ✅ — Audit Complete
 
 TypeScript clean: `npx tsc --noEmit` passes with zero errors.
 
-**22 issues fixed** — all critical and medium severity, plus most minor issues.
-See `memory/FRONTEND_AUDIT_2026-06-01.md` for the full fix log.
-
-**3 issues remaining** (minor, to be resolved before backend work):
+**3 minor issues remaining** (to be resolved before backend work):
 - `#21` — `fetchCategories` not a hook (minor refactor)
 - `#25` — `admin.faqs.tsx` category cell needs defensive type check
-- `#22` — "Community Member" fallback — intentional, mark as won't-fix
+- `#22` — "Community Member" fallback — mark as won't-fix
 
-### Backend ✅ — Audit Complete (2026-06-03)
+### Backend ✅ — TypeScript Clean
 
-TypeScript clean: `npx tsc --noEmit` passes with zero errors.
-
-**5 issues resolved:**
-- **Issue 16** — Duplicate `promote-faq` route removed from `AnswersController` (2026-06-03)
-- **Issue 18** — `vote()` now validates `answer.questionId` ownership (2026-06-03)
-- **forceSubmit (Medium)** — type corrected from `string` to `boolean` (2026-06-03)
-- **Issue 19** — `AiMatcherService` graceful-degradation confirmed correct by design (2026-06-03)
-- **Issue 5** — `QuestionsService.vote()` + `POST /questions/:id/vote` endpoint implemented (2026-06-03)
+**Ollama Vector Search (Phase 1+2+3) — DONE:**
+- Python FAISS microservice replaced with MERN-native Ollama + application-level cosine similarity
+- `EMBEDDING_PROVIDER=ollama` (local) | `mock` (dev/test, no external deps)
+- `OLLAMA_URL`, `OLLAMA_EMBEDDING_MODEL` env vars (default: `http://localhost:11434`, `nomic-embed-text`)
+- `FaqEmbedding` schema — `faq_embeddings` collection: `faqId`, `title`, `body`, `embedding` (384-dim float array)
+- `EmbeddingsService` — abstraction layer with `OllamaProvider` and `MockProvider`
+- `FaqEmbeddingsService` — `upsert()`, `rebuildAll()` (batched 16), `removeEmbedding()`, `findBestMatch()` (cosine similarity)
+- `AiMatcherService` + `AiService` — rewritten, no HTTP to Python
+- `FaqsService` — `create()`, `update()`, `archive()` auto-index/remove embeddings (fire-and-forget)
+- `AdminService.rebuildIndex()` — native, no HTTP to Python
+- `QuestionsService.create()` — embeds question title+body via `EmbeddingsService` and persists `questionEmbedding` field (fire-and-forget). Enables future "similar questions" lookups.
 
 **Known open issues:**
-- Issue 3 — `aiMatchFaqId` not saved on create path (Phase 2)
-- Issue 4 — `rebuild-index` AI endpoint needs implementation (AI side)
 - Issue 17 — E2E tests need in-memory MongoDB fixture
 
 ---
@@ -78,7 +77,7 @@ TypeScript clean: `npx tsc --noEmit` passes with zero errors.
 
 **Stack:**
 - React 18 + Vite 6 (dev: `npm run dev` → port 5173)
-- TanStack Router v1 (file-based type-safe routing, manually defined routes in `__root.tsx`)
+- TanStack Router v1 (code-based type-safe routing, manually defined routes in `__root.tsx`)
 - TanStack Query v5 (server state, infinite pagination, optimistic updates)
 - Tailwind CSS v3
 - Axios (HTTP client)
@@ -207,6 +206,8 @@ Note: `src/routes/{...}` directory exists and appears to be a TanStack Router ge
 
 **Stack:** NestJS + Express + Mongoose 8 + MongoDB Atlas + JWT + bcrypt + Swagger (at `/api/docs`)
 
+**AI Vector Search:** Ollama (`nomic-embed-text`, 384-dim) + application-level cosine similarity. No Python microservice. See `manual_checklist.md` for setup.
+
 **Env:** `backend/.env` (not committed — see `.env.example`)
 
 **Dev runner:** `npm run start:dev` inside `backend/`
@@ -214,7 +215,7 @@ Note: `src/routes/{...}` directory exists and appears to be a TanStack Router ge
 **Modules (NestJS feature modules):**
 - `auth` — JWT login/register/me
 - `users` — user management
-- `faqs` — FAQ CRUD, voting, feedback
+- `faqs` — FAQ CRUD, voting, feedback, auto-embedding on create/update/archive
 - `questions` — question submission + AI matching (via `AiMatcherService`) + intent detection
 - `questions/intent` — `IntentDetectorService` — keyword-based intent detection for internship document/status queries
 - `questions/schemas` — `DocumentStatus` schema — per-student, per-document-type status records
@@ -222,10 +223,51 @@ Note: `src/routes/{...}` directory exists and appears to be a TanStack Router ge
 - `categories` — category list
 - `flags` — flag/report system
 - `admin` — admin analytics + meta
-- `ai` — standalone AI service integration
+- `ai` — Ollama embeddings (`EmbeddingsService`) + FAQ embedding management (`FaqEmbeddingsService`) + cosine similarity search
 - `seed` — database seeder
 
 **API prefix:** All routes prefixed with `/api` (set in `main.ts`)
+
+---
+
+## AI Vector Search Architecture
+
+Replaces the Python microservice (sentence-transformers + FAISS) with a pure MERN approach:
+
+```
+Question submitted
+       ↓
+EmbeddingsService.generateEmbedding(questionText)
+       ↓ (Ollama / mock provider)
+384-dim float vector
+       ↓
+FaqEmbeddingsService.findBestMatch(query, threshold)
+       ↓ (brute-force cosine similarity over all docs in faq_embeddings)
+Top match above AI_CONFIDENCE_THRESHOLD?
+       ↓ yes
+{ matched: true, faqId, confidence }
+       ↓ no
+{ matched: false }  → question proceeds normally
+```
+
+**Key env vars:**
+- `EMBEDDING_PROVIDER=ollama` — production (local Ollama)
+- `EMBEDDING_PROVIDER=mock` — dev/test, no external deps, deterministic vectors
+- `OLLAMA_URL=http://localhost:11434` — Ollama HTTP endpoint
+- `OLLAMA_EMBEDDING_MODEL=nomic-embed-text` — embedding model
+- `AI_CONFIDENCE_THRESHOLD=0.75` — minimum cosine similarity score for a valid match
+
+**FAQ embedding lifecycle:**
+- `FaqsService.create()` → `FaqEmbeddingsService.upsert()` (fire-and-forget)
+- `FaqsService.update()` → `FaqEmbeddingsService.upsert()` with updated title/body (fire-and-forget)
+- `FaqsService.archive()` → `FaqEmbeddingsService.removeEmbedding()` (removes from match index)
+- `POST /admin/rebuild-index` → `FaqEmbeddingsService.rebuildAll()` (re-embed all published FAQs, batched)
+
+**Question embedding lifecycle:**
+- `QuestionsService.create()` → `EmbeddingsService.generateEmbedding(title + body)` → `findByIdAndUpdate(questionId, { questionEmbedding })` (fire-and-forget, runs after response sent)
+- Enables future "similar questions" / duplicate-detection feature (not yet built)
+
+**Graceful degradation:** If Ollama is down or embedding generation fails, `findBestMatch` returns `null` and the question proceeds without AI matching — no user-facing error.
 
 ---
 
@@ -264,6 +306,7 @@ PaginatedResponse<T>: { data: T[]; total: number; page: number; limit: number }
 - Admin resolution queue, FAQ manager, analytics dashboard
 - Query Insights tab (category coverage gap)
 - CategoryFilter + SearchBar with configurable baseRoute
+- Ollama vector search (MERN-native, replaces Python FAISS)
 
 ### ⚠️ Needs Implementation / Verification (Frontend)
 - **#21** `useCategories` hook — extract from CategoryFilter (minor refactor)
@@ -303,6 +346,7 @@ PaginatedResponse<T>: { data: T[]; total: number; page: number; limit: number }
 ## Design Notes
 
 - **Auth:** JWT stored in `localStorage`. `AuthContext` decodes it client-side on load and re-validates with `GET /auth/me`. 401 responses auto-redirect to `/login`.
+- **Ollama graceful degradation:** If Ollama is offline or embedding generation fails, `findBestMatch()` returns `null` and the question proceeds without an AI suggestion. FAQ and question embedding failures are logged but do not block the user.
 - **No auth library:** Auth guards are plain functions in `__root.tsx` that check `localStorage` and `throw redirect()`.
 - **No Zustand/Redux:** Server state managed entirely via TanStack Query. Component-local state for UI (dropdowns, toasts, etc.).
 - **Styling:** Pure Tailwind — no CSS modules, no component library. Indigo primary color.
@@ -314,6 +358,7 @@ PaginatedResponse<T>: { data: T[]; total: number; page: number; limit: number }
 - **AuthContext `_id` field:** Decoded from JWT's `userId` claim (MongoDB ObjectId string), confirmed against `/auth/me` response. All user comparisons use `_id` — never the JWT UUID directly.
 - **Vote score colour coding:** `AnswerCard` renders vote score in green (positive), red (negative), grey (zero).
 - **Markdown stripping:** `FaqCard.stripMarkdown()` handles fenced code blocks, inline code, images, links (→ text only), headings, bold/italic/strikethrough, lists/blockquotes, leftover brackets.
+- **Ollama graceful degradation:** If Ollama is offline or embedding generation fails, `findBestMatch()` returns `null` and the question proceeds without an AI suggestion — the user is never blocked. FAQ save/create/update is independent of indexing success.
 
 ---
 
@@ -322,7 +367,8 @@ PaginatedResponse<T>: { data: T[]; total: number; page: number; limit: number }
 - `memory/2026-06-01.md` — current session memory
 - `memory/FRONTEND_AUDIT_2026-06-01.md` — detailed audit log (2026-06-01)
 - `FRONTEND_ISSUES.md` — original 25-issue list (2026-05-29)
-- `backend/CHUNK_ISSUES.md` — known backend issues (pending audit)
+- `backend/CHUNK_ISSUES.md` — backend known issues (pending audit)
+- `manual_checklist.md` — manual setup steps (Ollama install, env, rebuild-index)
 - `frontend/src/routes/__root.tsx` — definitive route + guard definitions
 - `frontend/src/types/index.ts` — all domain types
 - `frontend/src/contexts/AuthContext.tsx` — auth state management

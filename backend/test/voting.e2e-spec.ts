@@ -3,6 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common'
 import request = require('supertest')
 import { AppModule } from '../src/app.module'
 import { GlobalHttpExceptionFilter } from '../src/common/http-exception.filter'
+import { TestDatabase } from './setup-test-db'
 
 /**
  * Voting e2e test.
@@ -25,6 +26,8 @@ describe('Voting (e2e)', () => {
   const userBEmail = `voterb${Date.now()}@test.com`
 
   beforeAll(async () => {
+    await TestDatabase.connect()
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile()
@@ -46,11 +49,11 @@ describe('Voting (e2e)', () => {
 
     userAToken = (await request(app.getHttpServer())
       .post('/api/auth/login')
-      .send({ email: userAEmail, password: 'Test@1234' })).body.accessToken
+      .send({ email: userAEmail, password: 'Test@1234' })).body.token
 
     userBToken = (await request(app.getHttpServer())
       .post('/api/auth/login')
-      .send({ email: userBEmail, password: 'Test@1234' })).body.accessToken
+      .send({ email: userBEmail, password: 'Test@1234' })).body.token
 
     // Create a question (User A)
     const qRes = await request(app.getHttpServer())
@@ -73,7 +76,8 @@ describe('Voting (e2e)', () => {
   })
 
   afterAll(async () => {
-    await app.close()
+    if (app) await app.close()
+    await TestDatabase.close()
   })
 
   // ── Helper ──────────────────────────────────────────────────────────────────
@@ -121,8 +125,9 @@ describe('Voting (e2e)', () => {
   it('user B switches from +1 to -1 → upvotes 0, downvotes 1', async () => {
     const res = await vote(-1).expect(200)
 
+    // After toggling off (+1 again), User B's next vote is a fresh -1 → 'added'
     expect(res.body).toMatchObject({
-      action: 'changed',
+      action: 'added',
       upvotes: 0,
       downvotes: 1,
     })

@@ -8,5 +8,9 @@
   },
   "moduleNameMapper": {
     "^src/(.*)$": "<rootDir>/../src/$1"
+  },
+  "testTimeout": 60000,
+  "testEnvironmentOptions": {
+    "MONGOMS_DOWNLOAD_TIMEOUT": 120000
   }
 }

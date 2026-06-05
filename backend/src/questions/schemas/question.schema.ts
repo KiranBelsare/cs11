@@ -14,8 +14,8 @@ export class Question {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   askedBy: Types.ObjectId
 
-  @Prop({ type: Types.ObjectId, ref: 'Category', required: true })
-  category: Types.ObjectId
+  @Prop({ type: Types.ObjectId, ref: 'Category' })
+  category?: Types.ObjectId
 
   @Prop({ type: [String], default: [] })
   tags: string[]
@@ -40,6 +40,14 @@ export class Question {
 
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Answer' }] })
   answers: Types.ObjectId[]
+
+  /**
+   * 384-dim embedding of the question's title + body, generated via Ollama.
+   * Persisted so future "similar questions" lookups can use cosine similarity
+   * against the questions collection itself.
+   */
+  @Prop({ type: [Number], default: undefined })
+  questionEmbedding?: number[]
 }
 
 export const QuestionSchema = SchemaFactory.createForClass(Question)

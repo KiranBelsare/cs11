@@ -3,9 +3,13 @@ import { MongooseModule } from '@nestjs/mongoose'
 import { FAQ, FaqSchema } from './faq.schema'
 import { FaqsService } from './faqs.service'
 import { FaqsController } from './faqs.controller'
+import { AiModule } from '../ai/ai.module'
 
 @Module({
-  imports: [MongooseModule.forFeature([{ name: FAQ.name, schema: FaqSchema }])],
+  imports: [
+    MongooseModule.forFeature([{ name: FAQ.name, schema: FaqSchema }]),
+    AiModule,
+  ],
   providers: [FaqsService],
   controllers: [FaqsController],
   exports: [FaqsService],

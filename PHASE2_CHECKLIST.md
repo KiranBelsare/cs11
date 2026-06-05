@@ -17,14 +17,15 @@
 
 ---
 
-## ⚠️ Phase 2 — Backend Incomplete
+## ✅ Recently Completed (2026-06-04)
 
-### 2. `aiMatchFaqId` Not Saved on Question Create
-- **Problem:** When `checkIntentAndMatch()` runs and finds an AI match, the result is thrown away. When the question is eventually saved (after user rejects AI suggestion or force-submits), `aiMatchFaqId` is always `null`.
-- **Impact:** `aiMatchRate` in analytics will always undercount.
-- **Action:** Capture `aiMatchFaqId` from `checkIntentAndMatch()` and store it on the question document at create time. Revisit intent detection flow — currently only saves after force-submit or AI reject.
+### 2. `aiMatchFaqId` Not Saved on Question Create — Fixed
+- **Problem:** Shape 2 (AI match): controller returned `{ aiMatch, faq }` without persisting the question — matched FAQ ID was discarded. Shape 1/forceSubmit: referenced undefined `matchedFaqId` variable → `ReferenceError`.
+- **Impact:** `aiMatchRate` in analytics always undercounted.
+- **Fix (2026-06-04):** `questions.controller.ts` — Shape 2 now captures `intentOrMatch.faq.id` and calls `create(dto, userId, capturedFaqId)`; Shape 1/forceSubmit simplified (no undefined var). `ask.tsx` — `onSuccess` captures `payload` (2nd arg) so reject → force-submit posts the correct form data.
+- **Files:** `backend/src/questions/questions.controller.ts`, `frontend/src/routes/ask.tsx`
 
-### 3. `rebuild-index` AI Endpoint
+### 3. `rebuild-index` AI Endpoint — Pending AI side
 - **Backend:** `AdminService.rebuildIndex()` calls `POST <AI_SERVICE_URL>/rebuild-index`
 - **Python service:** Endpoint is pending implementation on the AI microservice side.
 - **Action:** Implement `POST /rebuild-index` in the Python FAISS service (sentence-transformers + FAISS).
@@ -51,10 +52,16 @@
 - **Status:** Phase 2 in original spec. Not started.
 - **Action:** Add Socket.IO server to NestJS, client to frontend. Events: vote count changes, new answers, question status changes, new FAQ published.
 
-### 7. E2E Tests
+### 7. E2E Tests — ✅ Done (2026-06-04)
 - **Backend tests:** Live in `backend/test/` (`auth.e2e-spec.ts`, `questions.e2e-spec.ts`, `voting.e2e-spec.ts`, `admin.e2e-spec.ts`). Run via `npm run test:e2e`.
-- **Problem:** Tests need a MongoDB instance. `mongodb-memory-server` not yet integrated.
-- **Action:** Add `mongodb-memory-server` as a dev dependency, configure it in the e2e test bootstrap (`test/jest-e2e.json` or a setup file), ensure tests start with a clean in-memory DB.
+- **Setup:** `TestDatabase` class in `test/setup-test-db.ts` using `mongodb-memory-server`. `beforeAll` connects before `Test.createTestingModule`, `afterAll` closes.
+- **Timeout:** `testTimeout: 60000` in `jest-e2e.json` (5s default too short for MongoDB binary download).
+- **Key fixes applied:**
+  - `question.schema.ts`: `category` made optional (DTO validation optional, Mongoose schema `required: true` was blocking saves)
+  - `auth.service.ts`: `name` added to JWT payload → `/auth/me` returns `{ userId, name, email, role }`
+  - `http-exception.filter.ts`: `CastError` (Mongoose invalid ObjectId) now returns 404 instead of 500
+  - Test assertions corrected: `contributedBy: expect.any(String)` (Mongoose raw serialization), accept-answer re-fetches after PATCH, resolved questions still accept answers (only `closed` rejects), vote flip sequence uses `added` not `changed`
+- **Result:** 28/28 tests pass
 
 ### 8. Reputation System
 - **Current state:** `User.reputation` field exists. `AnswersService.vote()` increments the answer author's reputation (`+10` per upvote, `-5` per downvote reversal).
@@ -70,3 +77,7 @@
 - [x] Duplicate `promote-faq` route removed from `AnswersController`
 - [x] `forceSubmit` query param typed correctly (`boolean` not `string`)
 - [x] Issue #25 category `[object Object]` in admin FAQ manager (pre-resolved)
+
+## Recently Completed (2026-06-04)
+
+- [x] Item #2 — `aiMatchFaqId` now saved on question create (`questions.controller.ts` Shape 2 captures `intentOrMatch.faq.id` and passes to `create()`; Shape 1/forceSubmit fixed; `ask.tsx` `pendingPayload` fix for reject flow)

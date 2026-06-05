@@ -1,6 +1,6 @@
 # Current Features — CrowdFAQ
 
-> Compiled 2026-06-03. See `PHASE2_CHECKLIST.md` for what is still pending.
+> Compiled 2026-06-04. See `PHASE2_CHECKLIST.md` for what is still pending.
 
 ---
 
@@ -40,7 +40,7 @@
 | Intent detection | Keyword-based detection on title + body |
 | Document status check | If intent matches (NOC / offer letter / internship beginning), returns student-specific `DocumentStatus` without saving question |
 | DocumentStatusCard | Green/amber/red banner with progress bar, status badges, rejection reason |
-| AI matching | Question sent to Python microservice (sentence-transformers + FAISS) |
+| AI matching | Ollama embeddings (`nomic-embed-text`) + application-level cosine similarity. Provider: `EMBEDDING_PROVIDER=ollama` (local) or `mock` (dev/test). No Python microservice.
 | AI suggestion banner | Shows matched FAQ + confidence %; Accept → view FAQ, Reject → force save |
 | Force submit | `?forceSubmit=true` bypasses both intent and AI match, saves directly |
 | Category dropdown | Dynamically loaded from `GET /categories` |
@@ -84,7 +84,7 @@
 | Create FAQ | Form (title, body, category, tags) → `POST /faqs` |
 | Edit FAQ | Inline edit → `PATCH /faqs/:id` |
 | Archive FAQ | Status → `archived` → `PATCH /faqs/:id` |
-| Rebuild AI Index | `POST /admin/rebuild-index` → calls Python service → updates `Meta.lastIndexRebuild` |
+| Rebuild AI Index | `POST /admin/rebuild-index` → native NestJS (`FaqEmbeddingsService.rebuildAll()`) → updates `Meta.lastIndexRebuild` |
 
 ---
 
@@ -113,7 +113,7 @@
 | JWT guard | All protected routes; extracts `userId` (MongoDB ObjectId) from token |
 | Admin guard | `AdminGuard` checks `role === 'admin' || role === 'superadmin'` |
 | Vote toggle/flip | Both FAQs and questions support same-direction toggle and opposite-direction flip |
-| AI graceful degradation | If AI service is unreachable or returns malformed data, falls back to saving the question directly |
+| AI graceful degradation | If Ollama is offline or embedding generation fails, questions save without an AI match. Embedding failures are logged, never block the user. |
 
 ---
 
@@ -132,9 +132,9 @@ See `PHASE2_CHECKLIST.md` for the full pending list, and `FUTURE_FEATURES.md` fo
 
 Key items still pending:
 - Voting on questions — done 2026-06-03
-- `aiMatchFaqId` not saved on question create (Phase 2)
-- `rebuild-index` on the Python AI service side
+- `aiMatchFaqId` saved on question create ✅
+- Ollama vector search (MERN-native, replaces Python FAISS) ✅
+- E2E tests ✅
 - Superadmin pages
 - Socket.IO real-time updates
-- E2E tests
 - Full reputation system

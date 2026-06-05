@@ -24,7 +24,7 @@ export class AuthService {
       role: ROLES.INTERN,
     })
 
-    const token = this.generateToken(user._id.toString(), user.email, user.role, user.isFirstTimeIntern ?? true)
+    const token = this.generateToken(user._id.toString(), user.email, user.role, user.name, user.isFirstTimeIntern ?? true)
     const { passwordHash, ...userWithoutPassword } = user.toObject()
     return { token, user: userWithoutPassword }
   }
@@ -40,13 +40,13 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials')
     }
 
-    const token = this.generateToken(user._id.toString(), user.email, user.role, user.isFirstTimeIntern ?? true)
+    const token = this.generateToken(user._id.toString(), user.email, user.role, user.name, user.isFirstTimeIntern ?? true)
     const { passwordHash, ...userWithoutPassword } = user.toObject()
     return { token, user: userWithoutPassword }
   }
 
-  private generateToken(userId: string, email: string, role: string, isFirstTimeIntern: boolean) {
-    return this.jwtService.sign({ userId, email, role, isFirstTimeIntern })
+  private generateToken(userId: string, email: string, role: string, name: string, isFirstTimeIntern: boolean) {
+    return this.jwtService.sign({ userId, email, role, name, isFirstTimeIntern })
   }
 
   clearFirstTimeFlag(userId: string) {

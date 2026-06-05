@@ -3,12 +3,15 @@ import { INestApplication, ValidationPipe } from '@nestjs/common'
 import request = require('supertest')
 import { AppModule } from '../src/app.module'
 import { GlobalHttpExceptionFilter } from '../src/common/http-exception.filter'
+import { TestDatabase } from './setup-test-db'
 import { Types } from 'mongoose'
 
 describe('Auth (e2e)', () => {
   let app: INestApplication
 
   beforeAll(async () => {
+    await TestDatabase.connect()
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile()
@@ -21,7 +24,8 @@ describe('Auth (e2e)', () => {
   })
 
   afterAll(async () => {
-    await app.close()
+    if (app) await app.close()
+    await TestDatabase.close()
   })
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -40,7 +44,7 @@ describe('Auth (e2e)', () => {
     return request(app.getHttpServer())
       .post('/api/auth/login')
       .send({ email, password })
-      .expect(200)
+      .expect(201)
   }
 
   async function me(token: string) {
@@ -90,25 +94,28 @@ describe('Auth (e2e)', () => {
     // 1. Signup
     const signupRes = await register(studentA)
     expect(signupRes.body).toMatchObject({
-      userId: expect.any(String),
-      name: studentA.name,
-      email: studentA.email,
-      role: 'intern',
-    })
-    const userId: string = signupRes.body.userId
-
-    // 2. Login
-    const loginRes = await login(studentA.email, studentA.password)
-    expect(loginRes.body).toMatchObject({
-      accessToken: expect.any(String),
+      token: expect.any(String),
       user: {
-        userId,
+        _id: expect.any(String),
         name: studentA.name,
         email: studentA.email,
         role: 'intern',
       },
     })
-    const token: string = loginRes.body.accessToken
+    const userId: string = signupRes.body.user._id
+
+    // 2. Login
+    const loginRes = await login(studentA.email, studentA.password)
+    expect(loginRes.body).toMatchObject({
+      token: expect.any(String),
+      user: {
+        _id: userId,
+        name: studentA.name,
+        email: studentA.email,
+        role: 'intern',
+      },
+    })
+    const token: string = loginRes.body.token
 
     // 3. /auth/me — validate token
     const meRes = await me(token)
@@ -142,7 +149,7 @@ describe('Auth (e2e)', () => {
     // an internal path — the filter ensures no stack trace leaks
     const res = await request(app.getHttpServer())
       .get('/api/questions/invalid-id-format')
-      .set('Authorization', `Bearer ${(await login(studentA.email, studentA.password)).body.accessToken}`)
+      .set('Authorization', `Bearer ${(await login(studentA.email, studentA.password)).body.token}`)
       .expect(404)
 
     // Must never expose 'stack', 'errors', or raw Error objects

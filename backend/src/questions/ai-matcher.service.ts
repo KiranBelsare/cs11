@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { HttpService } from '@nestjs/axios'
+import { FaqEmbeddingsService } from '../ai/faq-embeddings.service'
 
 interface AiMatchResult {
   matched: boolean
@@ -11,42 +11,34 @@ interface AiMatchResult {
 @Injectable()
 export class AiMatcherService {
   private readonly logger = new Logger(AiMatcherService.name)
-  private readonly serviceUrl: string
   private readonly confidenceThreshold: number
 
   constructor(
-    private readonly httpService: HttpService,
+    private readonly faqEmbeddings: FaqEmbeddingsService,
     private readonly configService: ConfigService,
   ) {
-    this.serviceUrl = this.configService.get<string>('AI_SERVICE_URL', 'http://localhost:8000')
     this.confidenceThreshold = this.configService.get<number>('AI_CONFIDENCE_THRESHOLD', 0.75)
   }
 
+  /**
+   * Match a question string against stored FAQ embeddings using Ollama + cosine similarity.
+   * Returns the best match above the configured confidence threshold, or { matched: false }.
+   */
   async match(query: string): Promise<AiMatchResult> {
     try {
-      const response = await this.httpService.axiosRef.post(`${this.serviceUrl}/match`, {
-        question: query,
-      })
+      const result = await this.faqEmbeddings.findBestMatch(query, this.confidenceThreshold)
 
-      const matches: Array<{ id: string; confidence: number }> = response.data?.matches ?? []
-
-      if (matches.length === 0) {
+      if (!result) {
         return { matched: false }
       }
 
-      const top = matches[0]
-
-      if (top.confidence >= this.confidenceThreshold) {
-        return {
-          matched: true,
-          faqId: top.id,
-          confidence: top.confidence,
-        }
+      return {
+        matched: true,
+        faqId: result.faqId,
+        confidence: result.confidence,
       }
-
-      return { matched: false }
     } catch (error) {
-      this.logger.warn(`AI match service unreachable: ${(error as Error).message}. Allowing question to proceed.`)
+      this.logger.warn(`AI match failed: ${(error as Error).message}. Allowing question to proceed.`)
       return { matched: false }
     }
   }

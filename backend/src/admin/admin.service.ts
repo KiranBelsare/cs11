@@ -2,12 +2,11 @@ import { Injectable, NotFoundException, Logger } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { InjectConnection } from '@nestjs/mongoose'
 import { Model, Types, Connection } from 'mongoose'
-import { ConfigService } from '@nestjs/config'
-import { HttpService } from '@nestjs/axios'
 import { Question, QuestionDocument } from '../questions/schemas/question.schema'
 import { Answer, AnswerDocument } from '../answers/answer.schema'
 import { FAQ, FaqDocument } from '../faqs/faq.schema'
 import { MetaService } from './meta.service'
+import { FaqEmbeddingsService } from '../ai/faq-embeddings.service'
 
 @Injectable()
 export class AdminService {
@@ -18,9 +17,8 @@ export class AdminService {
     @InjectModel(Answer.name) private answerModel: Model<AnswerDocument>,
     @InjectModel(FAQ.name) private faqModel: Model<FaqDocument>,
     @InjectConnection() private connection: Connection,
-    private readonly configService: ConfigService,
-    private readonly httpService: HttpService,
     private readonly metaService: MetaService,
+    private readonly faqEmbeddings: FaqEmbeddingsService,
   ) {}
 
   async getQueryQueue(filters: {
@@ -117,23 +115,13 @@ export class AdminService {
   }
 
   async rebuildIndex(): Promise<{ rebuilt: boolean; count: number }> {
-    const faqs = await this.faqModel
-      .find({ status: 'published' }, { _id: 1, title: 1, body: 1, tags: 1 })
-      .lean()
-      .exec()
-
-    const aiUrl = this.configService.get<string>('AI_SERVICE_URL', 'http://localhost:8000')
     try {
-      await this.httpService.axiosRef.post(`${aiUrl}/rebuild-index`, { faqs })
+      const count = await this.faqEmbeddings.rebuildAll()
+      await this.metaService.setLastRebuild()
+      return { rebuilt: true, count }
     } catch (error) {
-      this.logger.warn(`AI rebuild-index failed: ${(error as Error).message}`)
-      // Don't throw — still return count, but don't update rebuild timestamp on failure
-      return { rebuilt: false, count: faqs.length }
+      this.logger.warn(`rebuildIndex failed: ${(error as Error).message}`)
+      return { rebuilt: false, count: 0 }
     }
-
-    // Stamp successful rebuild — only updated when AI call succeeds
-    await this.metaService.setLastRebuild()
-
-    return { rebuilt: true, count: faqs.length }
   }
 }
