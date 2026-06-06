@@ -16,7 +16,7 @@
 | **Member** | Draksharam Rushali | [Rushali0312](https://github.com/Rushali0312) |
 | **Member** | Khushi Dosi | [Khushidosi13](https://github.com/Khushidosi13) |
 | **Member** | Kiran Belsare | [KiranBelsare](https://github.com/KiranBelsare) |
-| **Member** | Lakshmi Sahasra M | [sahasra0911](https://github.com/sahasra0911) |
+| **Member** | Lakshmi Sahasra M | [sahasraa09](https://github.com/sahasraa09) |
 | **Member** | Sukrish | [sukrish3637d](https://github.com/sukrish3637d) |
 | **Member** | Vetcha Venkata Sai Pavan | [SaiPavanVetcha](https://github.com/SaiPavanVetcha) |
 
