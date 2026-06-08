@@ -5,6 +5,7 @@ import { FAQ, FaqDocument } from './faq.schema'
 import { CreateFaqDto } from './dtos/create-faq.dto'
 import { UpdateFaqDto } from './dtos/update-faq.dto'
 import { FaqEmbeddingsService } from '../ai/faq-embeddings.service'
+import { EventsGateway } from '../events/events.gateway'
 
 @Injectable()
 export class FaqsService {
@@ -13,6 +14,7 @@ export class FaqsService {
   constructor(
     @InjectModel(FAQ.name) private faqModel: Model<FaqDocument>,
     private readonly faqEmbeddings: FaqEmbeddingsService,
+    private readonly events: EventsGateway,
   ) {}
 
   async create(dto: CreateFaqDto, authorId: string): Promise<FaqDocument> {
@@ -27,6 +29,9 @@ export class FaqsService {
     this.faqEmbeddings.upsert(saved._id.toString(), saved.title, saved.body).catch((err) => {
       this.logger.error(`Failed to index FAQ ${saved._id} for AI matching: ${err.message}`)
     })
+
+    // Emit real-time event to all connected clients
+    this.events.emitFaqPublished(saved.toObject())
 
     return saved
   }
@@ -129,6 +134,8 @@ export class FaqsService {
     this.faqEmbeddings.removeEmbedding(faq._id.toString()).catch((err) => {
       this.logger.error(`Failed to remove archived FAQ ${faq!._id} from AI index: ${err.message}`)
     })
+
+    this.events.emitFaqPublished(faq.toObject())
 
     return faq
   }

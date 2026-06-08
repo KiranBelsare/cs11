@@ -131,10 +131,6 @@
 See `PHASE2_CHECKLIST.md` for the full pending list, and `FUTURE_FEATURES.md` for ideas further out.
 
 Key items still pending:
-- Voting on questions — done 2026-06-03
-- `aiMatchFaqId` saved on question create ✅
-- Ollama vector search (MERN-native, replaces Python FAISS) ✅
-- E2E tests ✅
 - Superadmin pages
 - Socket.IO real-time updates
 - Full reputation system

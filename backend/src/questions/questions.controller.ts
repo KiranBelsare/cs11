@@ -67,6 +67,8 @@ export class QuestionsController {
   @ApiOperation({ summary: 'List questions — intern sees own, admin+ sees all (intern+)' })
   findAll(
     @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('category') category?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Request() req?: any,
@@ -75,6 +77,8 @@ export class QuestionsController {
       userId: req.user.userId,
       role: req.user.role,
       status,
+      search,
+      category,
       page: page ? parseInt(page) : undefined,
       limit: limit ? parseInt(limit) : undefined,
     })

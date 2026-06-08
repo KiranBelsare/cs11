@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useMatchRoute } from '@tanstack/react-router'
 import { useAuth } from '@/contexts/AuthContext'
+import { isAdminOrAbove } from '@/utils/roles'
 
 interface NavLinkProps {
   to: string
@@ -55,6 +56,9 @@ export function Navbar() {
           <div className="hidden md:flex items-center space-x-1">
             <NavLink to="/faqs">Browse FAQs</NavLink>
             <NavLink to="/ask">Ask a Question</NavLink>
+            {user && !isAdminOrAbove(user.role) && (
+              <NavLink to="/resolve">Resolve</NavLink>
+            )}
           </div>
 
           {/* Right */}

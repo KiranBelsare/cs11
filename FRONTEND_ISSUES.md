@@ -1,6 +1,6 @@
 # Frontend Issues
 
-> Audited: 2026-05-29. TypeScript: `npx tsc --noEmit` passes cleanly — all issues below are logic/runtime bugs, not type errors.
+> Audited: 2026-05-29. Last updated: 2026-06-05 (critical batch resolved). TypeScript: `npx tsc --noEmit` passes cleanly.
 
 ---
 
@@ -378,11 +378,11 @@ Fix: same defensive check — `typeof faq.category === 'string' ? faq.category :
 
 | # | Severity | File(s) | Description |
 |---|---|---|---|
-| 1 | 🔴 | `AiSuggestionBanner.tsx` | `_id`/`id` mismatch crashes on accept |
-| 2 | 🔴 | `QuestionForm.tsx` | Double API call with injected mutation |
-| 3 | 🔴 | `CategoryFilter.tsx` | Selected state always `false` |
-| 4 | 🔴 | `useFaqs.ts` / `types/index.ts` | Wrong field name breaks pagination |
-| 5 | 🟠 | `questions.tsx` | `userId` param not what backend expects |
+| 1 | 🔴 | `AiSuggestionBanner.tsx` | `_id`/`id` mismatch crashes on accept | ✅ Fixed 2026-06-05 — prop already uses `id`; `handleAiAccept` passes `matchedFaq.id` |
+| 2 | 🔴 | `QuestionForm.tsx` | Double API call with injected mutation | ✅ Fixed 2026-06-05 — `localMutation` only created when no injected mutation provided |
+| 3 | 🔴 | `CategoryFilter.tsx` | Selected state always `false` | ✅ Fixed 2026-06-05 — `activeCategory = search.category`; `isActive` correctly uses `===` |
+| 4 | 🔴 | `useFaqs.ts` / `types/index.ts` | Wrong field name breaks pagination | ✅ Fixed 2026-06-05 — `fetchFaqs` maps `totalCount → total` before returning |
+| 5 | 🟠 | `questions.tsx` | `userId` param not what backend expects | ✅ Fixed 2026-06-05 — removed dead param; backend uses JWT userId via `req.user.userId`, not query param |
 | 6 | 🟠 | `AuthContext.tsx`, `AnswerCard.tsx`, `questions.tsx` | `user.id` vs `user._id` — comparison always fails |
 | 7 | 🟠 | `login.tsx`, `signup.tsx` | Unnecessary `search: {}` in navigate |
 | 8 | 🟠 | `ask.tsx` | `pendingPayload` set to wrong value |
@@ -395,12 +395,12 @@ Fix: same defensive check — `typeof faq.category === 'string' ? faq.category :
 | 15 | 🟠 | `FaqManagerPanel.tsx` | `faq.category` renders `[object Object]` |
 | 16 | 🟡 | `AiSuggestionBanner.tsx` | `0%` badge for undefined confidence |
 | 17 | 🟡 | `SubmitAnswerForm.tsx` | No loading text on pending button |
-| 18 | 🟡 | `FaqManagerPanel.tsx` | Skeleton rows mixed with real data |
+| 18 | 🟡 | `FaqManagerPanel.tsx` | Skeleton rows mixed with real data | 🔴 FaqManagerPanel — see issue description; ⚠️ questions.tsx skeleton bug also fixed 2026-06-05 (ternary `isLoading ? Skeleton : ...` instead of `&&`) |
 | 19 | 🟡 | `Navbar.tsx` | `window.location` active route fallback |
 | 20 | 🟡 | `FaqCard.tsx` | Markdown stripping incomplete |
 | 21 | 🟡 | `CategoryFilter.tsx` | `fetchCategories` not a proper hook | ✅ Fixed 2026-06-01 |
 | 22 | 🟡 | `AnswerCard.tsx` | "Community Member" fallback message | 🚫 Won't-fix (intentional design) |
-| 23 | 🟠 | `admin.analytics.tsx` | Status filter never initialises on load (enabled: false) |
+| 23 | 🟠 | `admin.analytics.tsx` | Status filter never initialises on load (enabled: false) | ✅ Fixed 2026-06-05 — no such guard in current code; admin queries fire immediately on mount |
 | 24 | 🟠 | `admin.analytics.tsx` | Category filter sends `undefined` → `'undefined'` string to API |
 | 25 | 🟠 | `admin.faqs.tsx` | Category cell renders `[object Object]` |
 

@@ -8,6 +8,7 @@ import { Answer, AnswerDocument } from './answer.schema'
 import { CreateAnswerDto } from './dtos/create-answer.dto'
 import { VoteDto } from './dtos/vote.dto'
 import { MetaService } from '../admin/meta.service'
+import { EventsGateway } from '../events/events.gateway'
 
 @Injectable()
 export class AnswersService {
@@ -17,13 +18,14 @@ export class AnswersService {
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
     private readonly metaService: MetaService,
+    private readonly events: EventsGateway,
   ) {}
 
   async create(questionId: string, dto: CreateAnswerDto, userId: string): Promise<AnswerDocument> {
     // Check question status before allowing answer
     const question = await this.connection
       .collection('questions')
-      .findOne({ _id: new Types.ObjectId(questionId) }, { session: undefined })
+      .findOne({ _id: new Types.ObjectId(questionId) })
 
     if (!question) throw new NotFoundException('Question not found')
     if (question.status === 'closed') {
@@ -44,14 +46,27 @@ export class AnswersService {
       // Add answer ref to question's answers array
       await this.connection
         .collection('questions')
-        .updateOne({ _id: new Types.ObjectId(questionId) }, { $push: { answers: saved._id } as any }, { session })
+        .updateOne(
+          { _id: new Types.ObjectId(questionId) },
+          { $push: { answers: saved._id } as any },
+          { session },
+        )
 
       // If question was open, advance to in_progress
       await this.connection
         .collection('questions')
-        .updateOne({ _id: new Types.ObjectId(questionId), status: 'open' }, { $set: { status: 'in_progress' } }, { session })
+        .updateOne(
+          { _id: new Types.ObjectId(questionId), status: 'open' },
+          { $set: { status: 'in_progress' } },
+          { session },
+        )
 
       await session.commitTransaction()
+
+      // Emit real-time events after successful commit
+      this.events.emitAnswerCreated(questionId, saved.toObject())
+      this.events.emitQuestionStatusChanged(questionId, 'in_progress')
+
       return saved
     } catch (error) {
       await session.abortTransaction()
@@ -61,7 +76,12 @@ export class AnswersService {
     }
   }
 
-  async vote(answerId: string, voterId: string, questionId: string, dto: VoteDto): Promise<{ action: string; upvotes: number; downvotes: number }> {
+  async vote(
+    answerId: string,
+    voterId: string,
+    questionId: string,
+    dto: VoteDto,
+  ): Promise<{ action: string; upvotes: number; downvotes: number }> {
     const voterOid = new Types.ObjectId(voterId)
     const newValue: 1 | -1 = dto.value
 
@@ -84,7 +104,7 @@ export class AnswersService {
 
     if (existingVote) {
       if (existingVote.value === newValue) {
-        // Same direction → remove vote (toggle off)
+        // Same direction: remove vote (toggle off)
         await this.answerModel.updateOne(
           { _id: new Types.ObjectId(answerId) },
           {
@@ -94,11 +114,11 @@ export class AnswersService {
         )
         action = 'removed'
       } else {
-        // Opposite direction → flip vote atomically using arrayFilters
+        // Opposite direction: flip vote atomically
         await this.answerModel.updateOne(
           { _id: new Types.ObjectId(answerId) },
           {
-            $set: { 'votes.$[elem].value': newValue },
+            $set: { 'votes.$[elem].value': newValue } as any,
             $inc: { upvotes: newValue === 1 ? 1 : -1, downvotes: newValue === -1 ? 1 : -1 },
           },
           { arrayFilters: [{ 'elem.userId': voterOid }] },
@@ -106,7 +126,7 @@ export class AnswersService {
         action = 'changed'
       }
     } else {
-      // New vote — push to array and increment counter
+      // New vote: push to array and increment counter
       await this.answerModel.updateOne(
         { _id: new Types.ObjectId(answerId) },
         {
@@ -118,11 +138,12 @@ export class AnswersService {
     }
 
     // Update contributor reputation: +2 per net upvote, -1 per net downvote
-    const repDelta: number = action === 'removed'
-      ? (newValue === 1 ? -2 : 1)
-      : action === 'changed'
-      ? (newValue === 1 ? 3 : -3)   // flip: undo old + apply new = +/-3 net
-      : (newValue === 1 ? 2 : -1)   // new vote
+    const repDelta: number =
+      action === 'removed'
+        ? newValue === 1 ? -2 : 1
+        : action === 'changed'
+        ? newValue === 1 ? 3 : -3
+        : newValue === 1 ? 2 : -1
 
     if (answer.contributedBy && repDelta !== 0) {
       await this.connection
@@ -131,10 +152,18 @@ export class AnswersService {
     }
 
     const updated = await this.answerModel.findById(answerId).lean().exec()
+
+    // Emit real-time vote update to all connected clients
+    this.events.emitVoteUpdated(answerId, 'answer', updated!.upvotes, updated!.downvotes)
+
     return { action, upvotes: updated!.upvotes, downvotes: updated!.downvotes }
   }
 
-  async acceptAnswer(questionId: string, answerId: string, askedByUserId: string): Promise<void> {
+  async acceptAnswer(
+    questionId: string,
+    answerId: string,
+    askedByUserId: string,
+  ): Promise<void> {
     const session = await this.connection.startSession()
     session.startTransaction()
 
@@ -152,9 +181,13 @@ export class AnswersService {
       // Unaccept all other answers for this question
       await this.connection
         .collection('answers')
-        .updateMany({ questionId: new Types.ObjectId(questionId) }, { $set: { isAccepted: false } }, { session })
+        .updateMany(
+          { questionId: new Types.ObjectId(questionId) },
+          { $set: { isAccepted: false } },
+          { session },
+        )
 
-      // Accept the target answer — must belong to this question
+      // Accept the target answer
       const acceptedResult = await this.connection
         .collection('answers')
         .updateOne(
@@ -170,9 +203,15 @@ export class AnswersService {
       // Close the question
       await this.connection
         .collection('questions')
-        .updateOne({ _id: new Types.ObjectId(questionId) }, { $set: { status: 'resolved' } }, { session })
+        .updateOne(
+          { _id: new Types.ObjectId(questionId) },
+          { $set: { status: 'resolved' } },
+          { session },
+        )
 
       await session.commitTransaction()
+
+      this.events.emitQuestionStatusChanged(questionId, 'resolved')
     } catch (error) {
       await session.abortTransaction()
       throw error
@@ -196,7 +235,7 @@ export class AnswersService {
 
       if (!question) throw new NotFoundException('Question not found')
 
-      // Resolve answerId: explicit body value, or fall back to the accepted answer
+      // Resolve answerId: explicit value, or fall back to the accepted answer
       let targetAnswerId: string | undefined = dto.answerId
 
       if (!targetAnswerId) {
@@ -244,21 +283,31 @@ export class AnswersService {
       // Mark answer as official admin answer
       await this.connection
         .collection('answers')
-        .updateOne({ _id: new Types.ObjectId(targetAnswerId) }, { $set: { isOfficialAdminAnswer: true } }, { session })
+        .updateOne(
+          { _id: new Types.ObjectId(targetAnswerId) },
+          { $set: { isOfficialAdminAnswer: true } },
+          { session },
+        )
 
       // Close the question
       await this.connection
         .collection('questions')
-        .updateOne({ _id: new Types.ObjectId(questionId) }, { $set: { status: 'closed' } }, { session })
+        .updateOne(
+          { _id: new Types.ObjectId(questionId) },
+          { $set: { status: 'closed' } },
+          { session },
+        )
 
       await session.commitTransaction()
 
-      // Fire-and-forget: rebuild AI index — stamp lastRebuild on success only
+      // Fire-and-forget: rebuild AI index
       const aiUrl = this.configService.get<string>('AI_SERVICE_URL', 'http://localhost:8000')
       this.httpService.axiosRef
         .post(`${aiUrl}/rebuild-index`)
         .then(() => this.metaService.setLastRebuild())
-        .catch(() => { /* silently ignore — stale index is observable via analytics */ })
+        .catch(() => { /* silently ignore */ })
+
+      this.events.emitFaqPublished({ title: dto.title, category: dto.category, tags: dto.tags })
     } catch (error) {
       await session.abortTransaction()
       throw error

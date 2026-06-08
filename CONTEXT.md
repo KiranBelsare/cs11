@@ -47,12 +47,7 @@ faq-query-resolution-system/
 
 ### Frontend ✅ — Audit Complete
 
-TypeScript clean: `npx tsc --noEmit` passes with zero errors.
-
-**3 minor issues remaining** (to be resolved before backend work):
-- `#21` — `fetchCategories` not a hook (minor refactor)
-- `#25` — `admin.faqs.tsx` category cell needs defensive type check
-- `#22` — "Community Member" fallback — mark as won't-fix
+TypeScript clean: `npx tsc --noEmit` passes with zero errors (25/25 FRONTEND_ISSUES resolved as of 2026-06-04).
 
 ### Backend ✅ — TypeScript Clean
 
@@ -68,8 +63,7 @@ TypeScript clean: `npx tsc --noEmit` passes with zero errors.
 - `AdminService.rebuildIndex()` — native, no HTTP to Python
 - `QuestionsService.create()` — embeds question title+body via `EmbeddingsService` and persists `questionEmbedding` field (fire-and-forget). Enables future "similar questions" lookups.
 
-**Known open issues:**
-- Issue 17 — E2E tests need in-memory MongoDB fixture
+**E2E Tests:** 28/28 passing across 4 spec files (auth, voting, questions, admin) using `mongodb-memory-server` fixture. Run with `npm run test:e2e` from `backend/`.
 
 ---
 
@@ -161,6 +155,7 @@ All routes defined in `src/routes/__root.tsx`. Auth guards are `beforeLoad` hook
 | `/questions/:id` | `QuestionDetailPage` | required | ✅ |
 | `/admin` | `AdminPage` | admin+ | ✅ Layout wrapper with sidebar nav |
 | `/admin/queries` | `AdminQueriesPage` | admin+ | ✅ Resolution queue with 30s auto-refresh |
+| `/admin/flags` | `AdminFlagsPage` | admin+ | ✅ Flag review queue (tabbed: pending/reviewed/dismissed/resolved) |
 | `/admin/faqs` | `AdminFaqsPage` | admin+ | ✅ FAQ manager + Rebuild AI Index |
 | `/admin/analytics` | `AdminAnalyticsPage` | admin+ | ✅ Stats dashboard + Query Insights tab |
 
@@ -307,18 +302,14 @@ PaginatedResponse<T>: { data: T[]; total: number; page: number; limit: number }
 - Query Insights tab (category coverage gap)
 - CategoryFilter + SearchBar with configurable baseRoute
 - Ollama vector search (MERN-native, replaces Python FAISS)
+- Flag/report flow — FlagButton on FAQ detail + AnswerCard; FlagModal (reason dropdown + optional comment); `/admin/flags` admin review page (pending/reviewed/dismissed/resolved tabs); backend `flags` module with review/resolve/dismiss endpoints
 
-### ⚠️ Needs Implementation / Verification (Frontend)
-- **#21** `useCategories` hook — extract from CategoryFilter (minor refactor)
-- **#25** `admin.faqs.tsx` category cell defensive check — same pattern as FaqManagerPanel
-- **#22** "Community Member" fallback — mark as won't-fix in FRONTEND_ISSUES.md
+### ⚠️ Needs Implementation / Verification
 - Superadmin pages (not yet implemented)
 - Socket.IO real-time vote count updates (Phase 2)
-- Flag/report flow (frontend not yet built)
 
 ### ⚠️ Backend — Not Yet Audited
 - `backend/CHUNK_ISSUES.md` — known backend issues (not yet reviewed this session)
-- E2E tests may need `mongodb-memory-server` or live MongoDB fixture
 
 ### Implemented (Chunk 11 — Intent Detection)
 - `backend/src/questions/intent/intent-detector.service.ts` — `@Injectable()`, `DOCUMENT_STATUS_KEYWORDS` array, `normalise()`, `detect()` → `'document_status_check' | null`

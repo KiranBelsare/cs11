@@ -4,9 +4,11 @@ import api from '@/lib/api'
 
 interface SubmitAnswerFormProps {
   questionId: string
+  /** Optional callback fired after a successful submission — use to invalidate parent query caches. */
+  onSuccess?: () => void
 }
 
-export function SubmitAnswerForm({ questionId }: SubmitAnswerFormProps) {
+export function SubmitAnswerForm({ questionId, onSuccess }: SubmitAnswerFormProps) {
   const queryClient = useQueryClient()
   const [body, setBody] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -18,6 +20,7 @@ export function SubmitAnswerForm({ questionId }: SubmitAnswerFormProps) {
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['question', questionId] })
       queryClient.invalidateQueries({ queryKey: ['answers', questionId] })
+      onSuccess?.()
     },
     onError: (err: unknown) => {
       const e = err as { response?: { data?: { message?: string } } }

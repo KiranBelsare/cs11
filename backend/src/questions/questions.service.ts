@@ -9,6 +9,7 @@ import { AiMatcherService } from './ai-matcher.service'
 import { IntentDetectorService } from './intent/intent-detector.service'
 import { DocumentStatusService } from './document-status.service'
 import { EmbeddingsService } from '../ai/embeddings.service'
+import { EventsGateway } from '../events/events.gateway'
 
 export type AskResponse =
   | { questionId: string; message: string }
@@ -26,6 +27,7 @@ export class QuestionsService {
     private readonly intentDetector: IntentDetectorService,
     private readonly documentStatus: DocumentStatusService,
     private readonly embeddingsService: EmbeddingsService,
+    private readonly events: EventsGateway,
   ) {}
 
   /**
@@ -84,10 +86,12 @@ export class QuestionsService {
     userId?: string
     role?: string
     status?: string
+    search?: string
+    category?: string
     page?: number
     limit?: number
   }): Promise<{ data: QuestionDocument[]; totalCount: number; page: number }> {
-    const { userId, role, status, page = 1, limit = 20 } = filters
+    const { userId, role, status, search, category, page = 1, limit = 20 } = filters
     const query: Record<string, unknown> = {}
 
     // intern sees only their own questions; admin+ sees all
@@ -102,6 +106,18 @@ export class QuestionsService {
 
     if (status) {
       query.status = status
+    }
+
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { body: { $regex: search, $options: 'i' } },
+      ]
+    }
+
+    if (category) {
+      // category param is a category slug; match against the populated category document's slug
+      query['category.slug'] = category
     }
 
     const skip = (page - 1) * limit
@@ -153,14 +169,18 @@ export class QuestionsService {
         if (newValue === 1) question.upvotes -= 1
         else question.downvotes -= 1
         await question.save()
-        return { action: 'removed', upvotes: question.upvotes, downvotes: question.downvotes }
+        const result = { action: 'removed', upvotes: question.upvotes, downvotes: question.downvotes }
+        this.events.emitVoteUpdated(questionId, 'question', result.upvotes, result.downvotes)
+        return result
       } else {
         // Opposite direction — flip vote
         existing.value = newValue
         if (newValue === 1) { question.upvotes += 1; question.downvotes -= 1 }
         else { question.downvotes += 1; question.upvotes -= 1 }
         await question.save()
-        return { action: 'flipped', upvotes: question.upvotes, downvotes: question.downvotes }
+        const result = { action: 'flipped', upvotes: question.upvotes, downvotes: question.downvotes }
+        this.events.emitVoteUpdated(questionId, 'question', result.upvotes, result.downvotes)
+        return result
       }
     } else {
       // New vote
@@ -168,7 +188,9 @@ export class QuestionsService {
       if (newValue === 1) question.upvotes += 1
       else question.downvotes += 1
       await question.save()
-      return { action: 'added', upvotes: question.upvotes, downvotes: question.downvotes }
+      const result = { action: 'added', upvotes: question.upvotes, downvotes: question.downvotes }
+      this.events.emitVoteUpdated(questionId, 'question', result.upvotes, result.downvotes)
+      return result
     }
   }
 

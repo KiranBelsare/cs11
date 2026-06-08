@@ -20,8 +20,8 @@ const STATUS_LABELS: Record<QuestionStatus, string> = {
   closed: 'Closed',
 }
 
-async function fetchMyQuestions(userId: string) {
-  const { data } = await api.get('/questions', { params: { userId } })
+async function fetchMyQuestions() {
+  const { data } = await api.get('/questions')
   return data as { data: Question[]; totalCount: number; page: number }
 }
 
@@ -30,7 +30,7 @@ export function QuestionsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['questions', 'my', user?._id],
-    queryFn: () => fetchMyQuestions(user!._id),
+    queryFn: () => fetchMyQuestions(),
     enabled: !!user?._id,
   })
 
@@ -51,7 +51,7 @@ export function QuestionsPage() {
         </Link>
       </div>
 
-      {isLoading && (
+      {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse">
@@ -61,9 +61,7 @@ export function QuestionsPage() {
             </div>
           ))}
         </div>
-      )}
-
-      {!isLoading && questions.length === 0 && (
+      ) : questions.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-gray-400 text-lg mb-1">No questions asked yet</p>
           <p className="text-sm text-gray-400 mb-4">Be the first to ask something!</p>
@@ -74,9 +72,7 @@ export function QuestionsPage() {
             Ask a Question
           </Link>
         </div>
-      )}
-
-      {!isLoading && questions.length > 0 && (
+      ) : (
         <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
           {questions.map((q) => {
             const status = q.status as QuestionStatus

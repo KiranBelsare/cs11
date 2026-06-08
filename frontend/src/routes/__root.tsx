@@ -11,6 +11,7 @@ import { AdminQueriesPage } from './admin.queries'
 import { AdminFaqsPage } from './admin.faqs'
 import { AdminAnalyticsPage } from './admin.analytics'
 import { AdminFlagsPage } from './admin.flags'
+import { ResolvePage } from './resolve'
 import { Navbar } from '@/components/Navbar'
 
 // ---- Guard helpers ----
@@ -28,6 +29,16 @@ function requireAdmin() {
   const { role } = JSON.parse(user) as { role: string }
   if (role !== 'admin' && role !== 'superadmin') {
     throw redirect({ to: '/faqs', search: {} })
+  }
+}
+
+function requireIntern() {
+  requireAuth()
+  const user = localStorage.getItem('user')
+  if (!user) throw redirect({ to: '/login' })
+  const { role } = JSON.parse(user) as { role: string }
+  if (role === 'admin' || role === 'superadmin') {
+    throw redirect({ to: '/admin/queries', search: {} })
   }
 }
 
@@ -106,6 +117,13 @@ const questionDetailRoute = createRoute({
   component: () => <QuestionDetailPage />,
 })
 
+const resolveRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/resolve',
+  beforeLoad: () => requireIntern(),
+  component: () => <ResolvePage />,
+})
+
 // ---- Admin section (has its own sidebar layout) ----
 
 const adminLayoutRoute = createRoute({
@@ -154,6 +172,7 @@ const routeTree = rootRoute.addChildren([
   askRoute,
   questionsRoute,
   questionDetailRoute,
+  resolveRoute,
   adminLayoutRoute,
   adminQueriesRoute,
   adminFaqsRoute,

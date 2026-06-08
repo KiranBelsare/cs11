@@ -11,6 +11,7 @@ import { CategoriesModule } from './categories/categories.module'
 import { AiModule } from './ai/ai.module'
 import { SeedModule } from './seed/seed.module'
 import { AdminModule } from './admin/admin.module'
+import { EventsModule } from './events/events.module'
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AdminModule } from './admin/admin.module'
     AiModule,
     SeedModule,
     AdminModule,
+    EventsModule,
   ],
 })
 export class AppModule {}
