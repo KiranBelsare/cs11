@@ -10,7 +10,7 @@
 |------|------|--------|
 | **Team Lead** | Amirth Sadhakshi M | [sadhami0519](https://github.com/sadhami0519) |
 | **Member** | Abhijith B | [Abhijith2005binu](https://github.com/Abhijith2005binu) |
-| **Member** | Aditya Raghuvanshi | [adityabmv](https://github.com/adityabmv) |
+| **Member** | Aditya Raghuvanshi | [aditya12-here](https://github.com/aditya12-here) |
 | **Member** | Barnik Basu | [barnikbasu](https://github.com/barnikbasu) |
 | **Member** | Chirag Saxena | [Laplaciann](https://github.com/Laplaciann) |
 | **Member** | Draksharam Rushali | [Rushali0312](https://github.com/Rushali0312) |
@@ -37,8 +37,6 @@
 | `memory/` | Daily session logs |
 | `FRONTEND_ISSUES.md` | Original 2026-05-29 issue list (mostly resolved) |
 | `backend/CHUNK_ISSUES.md` | Backend known issues log |
-
-**Current work:** Migrating AI matching from Python FAISS to MERN-native Ollama + application-level cosine similarity. Phase 1–3 complete (schema, FAQ auto-indexing, question embedding). See `manual_checklist.md` to set up Ollama before testing.
 
 ---
 
