@@ -8,140 +8,87 @@
 
 ## The Problem
 
-Every cohort, the same 10 questions recycle through chat: *"Where's my offer letter?" "Has my NOC been approved?" "When does onboarding start?"* They're scattered across threads, unanswered, or answered repeatedly by admins who already have real work to do.
+Every cohort, the same questions flood the chat.
+*"Where's my offer letter?" "Has my NOC been approved?" "When does onboarding start?"*
 
-CrowdFAQ breaks that loop.
+Admins answer them. Again. Students wait. Again.
 
----
-
-## What Is CrowdFAQ
-
-A community-driven FAQ platform with three-tier intelligence:
-
-1. **Intent Detection (instant)** — keyword match for document queries (NOC, offer letter, onboarding). Returns a live status card with progress bar, current state, and rejection reason. No queue, no AI call, zero latency.
-
-2. **Semantic Matching (fast)** — questions that aren't document queries get embedded and compared against the FAQ index via cosine similarity. A confident match (≥ 0.75) surfaces the answer immediately with an AI suggestion banner.
-
-3. **Community Queue (when needed)** — questions that stump both layers go to the crowd. Interns answer, vote, and resolve. Admins handle only what genuinely needs them.
-
-**Fewer redundant questions. Faster answers. Admins freed for problems that actually matter.**
+CrowdFAQ breaks that loop — by making the community the first line of response, and AI the first line of defence.
 
 ---
 
-## What Makes This Stand Out
+## How It Works
 
-<<<<<<< HEAD
-### 🤖 AI Pipeline
-We included a MERN-native Ollama + cosine similarity pipeline for student intent detection and FAQ matching.
+When a student submits a question, three things happen in order:
 
-Two embedding providers, switchable via env var:
-- **Ollama** (`nomic-embed-text`) — fully local, zero API cost
-- **Hugging Face Inference API** — cloud-ready, 1,000 req/day quota
+**1. Intent Detection**
+If the question is about a document — NOC, offer letter, onboarding — the platform skips everything else and returns that student's live document status instantly. No AI call. No admin involvement. No waiting.
 
-If either provider goes down, questions proceed normally. **No student is ever blocked.**
-=======
-### 🤖 Native AI Pipeline — No Python Microservice
-Most student projects bolt on AI as an afterthought with a separate Python service to deploy. CrowdFAQ keeps it MERN-native: embeddings via **Ollama** (`nomic-embed-text`) with application-level cosine similarity, running entirely within the NestJS backend. If Ollama goes down, the platform degrades gracefully — questions still save, no student is ever blocked.
->>>>>>> ef0927e (fixes and feats)
+**2. AI Matching**
+If it's not a document query, the question is compared against the existing FAQ knowledge base using semantic similarity. A confident match surfaces the answer immediately with a suggestion banner. The student either accepts it and moves on, or dismisses it and submits their question anyway.
 
-### ⚡ Intent Detection Before AI
-For document-status queries, CrowdFAQ skips the embedding model entirely. A keyword match fires first and returns a live `DocumentStatusCard` — progress bar, current state, rejection reason. Instant. Zero latency.
-
-### 🧪 Actually Tested
-28 E2E tests, 28 passing. Auth, voting, questions, and admin flows — backed by `mongodb-memory-server` so tests are isolated and reproducible. The frontend ships with zero TypeScript errors (25 issues identified and resolved).
-
-### 📊 Query Insights for Admins
-The admin dashboard surfaces per-category coverage gaps — questions with no matching FAQ. One click opens the FAQ creation form prefilled for that category. The knowledge base improves itself.
+**3. Community Queue**
+If neither layer resolves it, the question goes to the community. Experienced interns answer, vote, and resolve. Admins only see what genuinely needs them — which is rarely much.
 
 ---
 
-## Core Features
+## Two Features Worth Looking At
 
-| Feature | What It Does |
-|---------|-------------|
-| **Auth & Roles** 🔐 | JWT login/register, role-based guards (intern / admin / superadmin), first-time WelcomeBanner |
-| **FAQ Knowledge Base** 📚 | Paginated browse, category filters, debounced search, admin create/edit/archive |
-| **Intent Detection** ⚡ | Document status (NOC, offer letter, onboarding) without touching the queue or calling AI |
-| **AI Matching** 🤖 | Ollama embeddings + cosine similarity; graceful degradation if embedding service is down |
-| **Community Q&A** 🙋 | Ask, answer, upvote/downvote, accept; official admin answers; accepted answer pinned |
-| **Moderation** 🚩 | Flag/report flow (FlagButton + FlagModal); admin review queue (pending / reviewed / dismissed / resolved) |
-| **Admin Dashboard** 📊 | Resolution queue (30s auto-refresh), FAQ manager, analytics, Query Insights |
+### AI-Powered Deflection
+
+The semantic matching layer is built entirely within the MERN stack — no external AI service, no Python microservice, no separate deployment. Embeddings are generated via Ollama locally or Hugging Face in the cloud, switchable with a single environment variable. Cosine similarity runs inside NestJS.
+
+If the embedding provider goes down, the platform degrades gracefully. Questions still save. Students are never blocked.
+
+The result: most repeat questions never reach the admin queue. They're answered before they're even asked.
+
+### Reputation System
+
+Participation without recognition is participation that fades. CrowdFAQ tracks every contribution an intern makes and translates it into a visible reputation score.
+
+Six earning events:
+
+| What you did | Points |
+|---|---|
+| Posted an answer | +2 |
+| Your answer was upvoted | +10 |
+| Your answer was accepted | +15 |
+| Your answer was promoted to a FAQ by an admin | +25 |
+| Your answer was downvoted | −2 |
+
+Every intern can see their full earning history — what they earned, when, and why. The top contributors surface in the admin analytics dashboard. Reputation never goes below zero.
+
+This feature isn't cosmetic. It gamifies the overall experience and serves as positive incentivization - the reason experienced interns participate instead of lurking.
 
 ---
 
-## Question Lifecycle
+## What's Built
 
-```
-Student submits question
-        │
-        ▼
-Intent detection — keyword match on title + body
-        │
-   Match? ──yes──▶ Return DocumentStatusCard (no DB write, no AI call)
-        │
-        no
-        ▼
-Embed question → cosine similarity vs FAQ index
-        │
-   Match ≥ 0.75? ──yes──▶ Show AI suggestion banner with matched FAQ
-        │
-        no
-        ▼
-Save question → Community queue
-        │
-        ▼
-Community answers + votes
-        │
-   Resolved? ──yes──▶ Done
-        │
-        no
-        ▼
-Admin resolves or promotes to FAQ ← last resort, not first response
-```
+| Area | Status |
+|---|---|
+| FAQ knowledge base — browse, search, filter | ✅ |
+| Intent detection — document status, zero latency | ✅ |
+| AI matching — semantic similarity, graceful degradation | ✅ |
+| Community Q&A — ask, answer, vote, accept | ✅ |
+| Reputation system — earning events, history, leaderboard | ✅ |
+| Flag and moderation flow | ✅ |
+| Admin resolution queue | ✅ |
+| Admin analytics + Query Insights | ✅ |
+| Real-time updates via Socket.IO | ✅ |
 
 ---
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Frontend | React 18, Vite 6, TanStack Router v1, TanStack Query v5, Tailwind CSS v3 |
-| Backend | NestJS, Mongoose 8, MongoDB Atlas |
-| AI / Embeddings | Ollama (`nomic-embed-text`) with application-level cosine similarity |
-| Testing | Jest + `mongodb-memory-server` — 28/28 E2E tests passing |
-| Auth | JWT, role-based guards, Axios 401 interceptor |
+|---|---|
+| Frontend | React 18, Vite 6, TanStack Router, TanStack Query, Tailwind CSS |
+| Backend | NestJS, Mongoose, MongoDB Atlas |
+| AI | Ollama / Hugging Face Inference API — switchable via env var |
+| Real-time | Socket.IO |
+| Testing | Jest + mongodb-memory-server |
+| Auth | JWT, role-based guards |
 
 ---
 
-## Build Quality
-
-| Area | Status |
-|------|--------|
-| Frontend TypeScript | ✅ Zero errors — 25/25 issues resolved |
-| Backend TypeScript | ✅ Clean |
-| Intent detection | ✅ Live — fires before AI match |
-| AI matching (Ollama) | ✅ Live — degrades gracefully if offline |
-| E2E test suite | ✅ 28/28 passing |
-| Flag & moderation | ✅ Complete end-to-end |
-| Query Insights | ✅ Built — coverage gaps surfaced per category |
-| Admin analytics | ✅ Overview tab + AI index staleness warning |
-| Superadmin pages | 🔜 Not built |
-| Real-time vote updates | 🔜 Socket.IO — Phase 2 |
-
----
-
-## Roadmap
-
-| Feature | Status |
-|---------|--------|
-| Socket.IO live vote counts | 🔜 Phase 2 |
-| Duplicate detection | 🔜 Uses stored `questionEmbedding` vectors |
-| FAQ auto-promotion | 🔜 High-resolution questions → admin FAQ candidates |
-
----
-
-<<<<<<< HEAD
-*Team 11 · Vicharanashala Summership · 11 members*
-=======
-*CrowdFAQ is maintained by Team 11 — 11 members of the Vicharanashala Summership cohort.*
->>>>>>> ef0927e (fixes and feats)
+*Team 11 · Vicharanashala Summership · 10 members*
