@@ -19,29 +19,7 @@
 | **Member** | Sukrish | [sukrish3637d](https://github.com/sukrish3637d) |
 | **Member** | Vetcha Venkata Sai Pavan | [SaiPavanVetcha](https://github.com/SaiPavanVetcha) |
 
-<<<<<<< HEAD
-> **Team No.** 10 &nbsp;·&nbsp; **Team Count** 10
-=======
-> **Team No.** 11  |  **Team Count** 11
->>>>>>> ef0927e (fixes and feats)
-
----
-
-## Quick Orientation
-
-> Last updated: 2026-06-15 20:04 GMT+5:30 -- HuggingFace provider refactored (native fetch, shape validation, fail-fast); Bug 6/8/11/12/13 fixed in frontend.
-
-| File | Purpose |
-|------|---------|
-| `manual_checklist.md` | Setup steps (HuggingFace or Ollama, env vars, rebuild-index) |
-| `CURRENT_FEATURES.md` | Complete inventory of what works right now |
-| `PHASE2_CHECKLIST.md` | Pending items |
-| `FUTURE_FEATURES.md` | Ideas and enhancements for later |
-| `memory/` | Daily session logs |
-| `FRONTEND_ISSUES.md` | Issue list with fix status (25 issues; most resolved) |
-| `backend/CHUNK_ISSUES.md` | Backend known issues log |
-
----
+**Team No.** 11 &nbsp;·&nbsp; **Team Count** 10
 
 ## Project Overview
 
@@ -60,13 +38,6 @@ faq-query-resolution-system/
 |-- frontend/           # React SPA
 |-- backend/            # NestJS API
 |-- memory/             # Session memory and audit logs
-|-- manual_checklist.md # Manual setup steps (HuggingFace or Ollama, env, rebuild-index)
-|-- CURRENT_FEATURES.md # Complete inventory of live features
-|-- PHASE2_CHECKLIST.md # Pending items
-|-- FUTURE_FEATURES.md  # Ideas and enhancements for later
-|-- CONTEXT.md          # Project context for AI sessions
-|-- FRONTEND_ISSUES.md  # Issue list with fix status
-|-- backend/CHUNK_ISSUES.md # Backend known issues log
 |-- seed-document-status.js
 ```
 
@@ -91,22 +62,6 @@ faq-query-resolution-system/
 - `HUGGINGFACE_EMBEDDING_MODEL` (default: `sentence-transformers/all-MiniLM-L6-v2`)
 - `OLLAMA_URL`, `OLLAMA_EMBEDDING_MODEL` env vars (only when `EMBEDDING_PROVIDER=ollama`)
 - `AI_CONFIDENCE_THRESHOLD=0.75` -- minimum cosine similarity for a valid AI match
-
----
-
-## Current State (as of 2026-06-15)
-
-### Frontend -- Audit Complete
-TypeScript clean: `npx tsc --noEmit` passes with zero errors (25/25 `FRONTEND_ISSUES` resolved; Bugs 6/8/11/12/13 fixed 2026-06-15).
-
-### Backend -- TypeScript Clean
-Ollama Vector Search (Phase 1+2+3) done:
-- Python FAISS microservice replaced with MERN-native embedding pipeline
-- `FaqEmbedding` schema, `EmbeddingsService` (HuggingFace + Ollama + Mock providers), `FaqEmbeddingsService`, `AiMatcherService` all rewritten
-- `HuggingFaceProvider` extracted to `backend/src/ai/providers/huggingface.provider.ts` (2026-06-15) -- native fetch, 30s timeout, 384-dim shape validation, `wait_for_model: true`, fail-fast on missing API key
-- FAQ `create/update/archive` auto-index embeddings (fire-and-forget)
-- `QuestionsService.create()` embeds question title+body for future duplicate-detection
-- **E2E Tests:** 28/28 passing across 4 spec files (`auth`, `voting`, `questions`, `admin`)
 
 ---
 
@@ -163,15 +118,6 @@ Ollama Vector Search (Phase 1+2+3) done:
 
 ---
 
-## Pending
-
-- Superadmin pages (not yet implemented)
-- Socket.IO real-time vote count updates (Phase 2)
-- Full reputation system
-- `backend/CHUNK_ISSUES.md` -- backend issues not yet audited
-
----
-
 ## Testing
 
 E2E tests live in `backend/test/` -- run via `npm run test:e2e` from `backend/`.
@@ -187,14 +133,6 @@ To test intent detection flow:
 
 - **Auth:** JWT in `localStorage`; `AuthContext` decodes client-side and re-validates with `GET /auth/me`. 401s auto-redirect to `/login`. Exposes both `_id` and `id` (alias) on the user object -- both are the MongoDB ObjectId string, set from either JWT claim or `/auth/me` response.
 - **No Zustand/Redux:** Server state managed entirely via TanStack Query.
-<<<<<<< HEAD
-- **Styling:** Pure Tailwind — no CSS modules, no component library. Indigo primary color.
-- **Ollama graceful degradation:** If Ollama is offline, `findBestMatch()` returns `null` — user is never blocked.
-- **Intent detection:** `POST /questions` → keyword match → `DocumentStatusService` if matched. No DB save, no AI call when intent fires.
-- **Global exception filter:** Formats all errors as `{ statusCode, message, timestamp, path }`; maps unknown exceptions to 500 without leaking internals.
-=======
 - **Styling:** Pure Tailwind -- no CSS modules, no component library. Indigo primary color.
 - **AI graceful degradation:** If the embedding provider is unavailable, `findBestMatch()` returns `null` -- user is never blocked.
-- **Intent detection:** `POST /questions` -> keyword match -> `DocumentStatusService` if matched. No DB save, no AI call when intent fires.
 - **Global exception filter:** Formats all errors as `{ statusCode, message, timestamp, path }`; maps unknown exceptions to 500 without leaking internals.
->>>>>>> ef0927e (fixes and feats)
