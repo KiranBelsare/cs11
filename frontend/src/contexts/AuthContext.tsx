@@ -1,11 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
-import { useNavigate } from '@tanstack/react-router'
 import api from '@/lib/api'
 
 interface AuthUser {
-  /** Matches `user._id` (MongoDB ObjectId) returned by `/auth/me` */
   _id: string
-  /** Alias of `_id` — same underlying value, for consumers that expect `id` */
   id: string
   name: string
   role: 'intern' | 'admin' | 'superadmin'
@@ -16,7 +13,7 @@ interface AuthContextValue {
   user: AuthUser | null
   token: string | null
   isLoading: boolean
-  login: (token: string) => void
+  login: (token: string) => Promise<string>
   logout: () => void
 }
 
@@ -26,8 +23,15 @@ function decodeJwt(token: string): AuthUser | null {
   try {
     const payload = token.split('.')[1]
     const decoded = JSON.parse(atob(payload))
-    // JWT claim "userId" holds the MongoDB ObjectId string
-    const _id = decoded.userId
+
+    const _id =
+      decoded.userId ??
+      decoded.sub ??
+      decoded._id ??
+      decoded.id
+
+    if (!_id) return null
+
     return {
       _id,
       id: _id,
@@ -40,73 +44,133 @@ function decodeJwt(token: string): AuthUser | null {
   }
 }
 
+function getLandingRoute(role: string): string {
+  if (role === 'admin' || role === 'superadmin') {
+    return '/admin/queries'
+  }
+
+  return '/faqs'
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const navigate = useNavigate()
   const [user, setUser] = useState<AuthUser | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const stored = localStorage.getItem('token')
-    if (stored) {
-      setToken(stored)
-      const decoded = decodeJwt(stored)
-      if (decoded) {
-        setUser(decoded)
-        api.get('/auth/me')
-          .then(({ data }) =>
-            setUser({ _id: data._id, id: data._id, name: data.name, role: data.role, isFirstTimeIntern: data.isFirstTimeIntern ?? true }),
-          )
-          .catch(() => {
-            localStorage.removeItem('token')
-            setUser(null)
-            setToken(null)
-          })
-          .finally(() => setIsLoading(false))
-        return
-      } else {
-        localStorage.removeItem('token')
-        setToken(null)
+    const storedToken = localStorage.getItem('token')
+
+    if (!storedToken) {
+      setIsLoading(false)
+      return
+    }
+
+    setToken(storedToken)
+
+    const decoded = decodeJwt(storedToken)
+
+    if (decoded) {
+      setUser(decoded)
+
+      const storedUser = localStorage.getItem('user')
+      if (!storedUser) {
+        localStorage.setItem('user', JSON.stringify(decoded))
       }
     }
-    setIsLoading(false)
+
+    api
+      .get('/auth/me')
+      .then(({ data }) => {
+        const fullUser: AuthUser = {
+          _id: data.userId,
+          id: data.userId,
+          name: data.name,
+          role: data.role,
+          isFirstTimeIntern: data.isFirstTimeIntern ?? true,
+        }
+
+        setUser(fullUser)
+        localStorage.setItem('user', JSON.stringify(fullUser))
+      })
+      .catch(() => {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+
+        setUser(null)
+        setToken(null)
+      })
+      .finally(() => {
+        setIsLoading(false)
+      })
   }, [])
 
-  const login = useCallback((newToken: string) => {
+  const login = useCallback(async (newToken: string): Promise<string> => {
     localStorage.setItem('token', newToken)
     setToken(newToken)
+
     const decoded = decodeJwt(newToken)
-    if (decoded) setUser(decoded)
-    // Try/finally ensures navigate is always called even if /auth/me fails
-    try {
-      api.get('/auth/me')
+
+    if (decoded) {
+      setUser(decoded)
+
+      // IMPORTANT: save immediately for route guards
+      localStorage.setItem('user', JSON.stringify(decoded))
+
+      api
+        .get('/auth/me')
         .then(({ data }) => {
-          const _id = data._id
-          const fullUser = { _id, id: _id, name: data.name, role: data.role, isFirstTimeIntern: data.isFirstTimeIntern ?? true }
+          const fullUser: AuthUser = {
+            _id: data.userId,
+            id: data.userId,
+            name: data.name,
+            role: data.role,
+            isFirstTimeIntern: data.isFirstTimeIntern ?? true,
+          }
+
           setUser(fullUser)
           localStorage.setItem('user', JSON.stringify(fullUser))
         })
         .catch(() => {
-          // Network/server error: token may be invalid - clear it
-          localStorage.removeItem('token')
-          setUser(null)
-          setToken(null)
+          // ignore background refresh failures
         })
-    } finally {
-      navigate({ to: '/faqs' })
+
+      return getLandingRoute(decoded.role)
     }
-  }, [navigate])
+
+    const { data } = await api.get('/auth/me')
+
+    const fullUser: AuthUser = {
+      _id: data.userId,
+      id: data.userId,
+      name: data.name,
+      role: data.role,
+      isFirstTimeIntern: data.isFirstTimeIntern ?? true,
+    }
+
+    setUser(fullUser)
+    localStorage.setItem('user', JSON.stringify(fullUser))
+
+    return getLandingRoute(data.role)
+  }, [])
 
   const logout = useCallback(() => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+
     setUser(null)
     setToken(null)
-    navigate({ to: '/login' })
-  }, [navigate])
+  }, [])
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        isLoading,
+        login,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )
@@ -114,6 +178,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
+
+  if (!ctx) {
+    throw new Error('useAuth must be used inside AuthProvider')
+  }
+
   return ctx
 }

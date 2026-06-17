@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common'
-import { InjectModel } from '@nestjs/mongoose'
-import { Model, Types } from 'mongoose'
+import { InjectModel, InjectConnection } from '@nestjs/mongoose'
+import { Model, Types, Connection } from 'mongoose'
 import { FAQ, FaqDocument } from './faq.schema'
 import { CreateFaqDto } from './dtos/create-faq.dto'
 import { UpdateFaqDto } from './dtos/update-faq.dto'
@@ -13,9 +13,18 @@ export class FaqsService {
 
   constructor(
     @InjectModel(FAQ.name) private faqModel: Model<FaqDocument>,
+    @InjectConnection() private readonly connection: Connection,
     private readonly faqEmbeddings: FaqEmbeddingsService,
     private readonly events: EventsGateway,
   ) {}
+
+  // Resolve a category slug → ObjectId. Returns null if not found.
+  private async resolveCategorySlug(slug: string): Promise<Types.ObjectId | null> {
+    const doc = await this.connection
+      .collection('categories')
+      .findOne({ slug }, { projection: { _id: 1 } })
+    return doc ? doc._id as Types.ObjectId : null
+  }
 
   async create(dto: CreateFaqDto, authorId: string): Promise<FaqDocument> {
     const faq = new this.faqModel({
@@ -25,12 +34,10 @@ export class FaqsService {
     })
     const saved = await faq.save()
 
-    // Index the new FAQ for AI matching
     this.faqEmbeddings.upsert(saved._id.toString(), saved.title, saved.body).catch((err) => {
       this.logger.error(`Failed to index FAQ ${saved._id} for AI matching: ${err.message}`)
     })
 
-    // Emit real-time event to all connected clients
     this.events.emitFaqPublished(saved.toObject())
 
     return saved
@@ -48,19 +55,23 @@ export class FaqsService {
     const { category, tags, status, page = 1, limit = 20, isAdmin = false, search } = filters
 
     const skip = (page - 1) * limit
-
-    // Regex-based search (no Atlas Search needed for this approach)
     const query: Record<string, unknown> = {}
 
     if (status) {
       query.status = status
     } else if (!isAdmin) {
-      // Non-admins only see published FAQs when no status filter is given
       query.status = 'published'
     }
 
     if (category) {
-      query.category = new Types.ObjectId(category)
+      // category is a slug string — resolve to ObjectId first
+      const categoryId = await this.resolveCategorySlug(category)
+      if (categoryId) {
+        query.category = categoryId
+      } else {
+        // Unknown slug — return empty result set
+        query.category = new Types.ObjectId('000000000000000000000000')
+      }
     }
 
     if (tags && tags.length > 0) {
@@ -113,7 +124,6 @@ export class FaqsService {
 
     if (!faq) throw new NotFoundException('FAQ not found')
 
-    // Re-index so the embedding reflects the updated title/body
     this.faqEmbeddings.upsert(faq._id.toString(), faq.title, faq.body).catch((err) => {
       this.logger.error(`Failed to re-index FAQ ${faq!._id} for AI matching: ${err.message}`)
     })
@@ -130,7 +140,6 @@ export class FaqsService {
 
     if (!faq) throw new NotFoundException('FAQ not found')
 
-    // Remove from the embedding index — archived FAQs should not be matched
     this.faqEmbeddings.removeEmbedding(faq._id.toString()).catch((err) => {
       this.logger.error(`Failed to remove archived FAQ ${faq!._id} from AI index: ${err.message}`)
     })

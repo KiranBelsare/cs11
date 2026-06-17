@@ -32,6 +32,7 @@ export function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const isIntern = user && !isAdminOrAbove(user.role)
+  const isAdmin = user && isAdminOrAbove(user.role)
   const { data: repData } = useReputation()
 
   useEffect(() => {
@@ -59,7 +60,7 @@ export function Navbar() {
           <div className="hidden md:flex items-center space-x-1">
             <NavLink to="/faqs">Browse FAQs</NavLink>
             <NavLink to="/ask">Ask a Question</NavLink>
-            {user && !isAdminOrAbove(user.role) && (
+            {isIntern && (
               <NavLink to="/resolve">Resolve</NavLink>
             )}
           </div>
@@ -93,6 +94,25 @@ export function Navbar() {
 
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+
+                    {/* Admin dashboard link */}
+                    {isAdmin && (
+                      <>
+                        <Link
+                          to="/admin/queries"
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-indigo-700 font-medium hover:bg-indigo-50"
+                          onClick={() => setDropdownOpen(false)}
+                        >
+                          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                          Admin Dashboard
+                        </Link>
+                        <div className="border-t border-gray-100 my-1" />
+                      </>
+                    )}
+
+                    {/* Reputation — interns only */}
                     {isIntern && repData && (
                       <Link
                         to="/reputation"
@@ -105,13 +125,18 @@ export function Navbar() {
                         <span>{repData.reputation} reputation</span>
                       </Link>
                     )}
-                    <Link
-                      to="/questions"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      My Questions
-                    </Link>
+
+                    {/* My Questions — interns only */}
+                    {isIntern && (
+                      <Link
+                        to="/questions"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        My Questions
+                      </Link>
+                    )}
+
                     <button
                       onClick={() => logout()}
                       className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"

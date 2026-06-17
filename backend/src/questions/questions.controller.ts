@@ -37,13 +37,11 @@ export class QuestionsController {
     @Query('forceSubmit') forceSubmit: boolean,
     @Request() req: any,
   ) {
-    // forceSubmit bypasses intent and AI matching — save directly
     if (forceSubmit === true) {
       const result = await this.questionsService.create(dto, req.user.userId)
       return { questionId: result.questionId, message: result.message }
     }
 
-    // Intent detection + AI match in one call
     const intentOrMatch = await this.questionsService.checkIntentAndMatch(dto, req.user.userId)
 
     // Shape 3 — intent detection fired
@@ -51,11 +49,15 @@ export class QuestionsController {
       return intentOrMatch
     }
 
-    // Shape 2 — AI match fired: save question with the matched FAQ ID
+    // Shape 2 — AI match fired: return faq so frontend shows the banner
     if (intentOrMatch && 'aiMatch' in intentOrMatch) {
       const capturedFaqId = intentOrMatch.faq.id
       const result = await this.questionsService.create(dto, req.user.userId, capturedFaqId)
-      return { questionId: result.questionId, message: result.message }
+      return {
+        aiMatch: true,
+        faq: intentOrMatch.faq,
+        questionId: result.questionId,
+      }
     }
 
     // Shape 1 — no intent, no match; persist the question
@@ -64,18 +66,20 @@ export class QuestionsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List questions — intern sees own, admin+ sees all (intern+)' })
+  @ApiOperation({ summary: 'List questions (intern+)' })
   findAll(
     @Query('status') status?: string,
     @Query('search') search?: string,
     @Query('category') category?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('excludeUser') excludeUser?: string,
     @Request() req?: any,
   ) {
     return this.questionsService.findAll({
       userId: req.user.userId,
       role: req.user.role,
+      excludeUserId: excludeUser === 'true' ? req.user.userId : undefined,
       status,
       search,
       category,
@@ -104,7 +108,7 @@ export class QuestionsController {
 
   @Post(':id/vote')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Vote on a question — toggle if same direction, flip if opposite (intern+)' })
+  @ApiOperation({ summary: 'Vote on a question (intern+)' })
   vote(
     @Param('id') questionId: string,
     @Body() dto: VoteQuestionDto,

@@ -39,6 +39,7 @@ export function ResolvePage() {
       const params: Record<string, string> = {
         status: 'open',
         page: String(pageParam),
+        excludeUser: 'true',
         limit: '10',
       }
       if (qSearch) params.search = qSearch

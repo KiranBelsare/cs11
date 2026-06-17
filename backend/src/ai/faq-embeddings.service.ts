@@ -176,6 +176,7 @@ export class FaqEmbeddingsService {
     }
 
     if (!best || best.confidence < confidenceThreshold) {
+      this.logger.log(`Best match: "${best?.title}" confidence: ${best?.confidence} threshold: ${confidenceThreshold}`)
       return null
     }
 

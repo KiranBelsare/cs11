@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common'
-import { InjectModel } from '@nestjs/mongoose'
-import { Model, Types } from 'mongoose'
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common'
+import { InjectModel, InjectConnection } from '@nestjs/mongoose'
+import { Model, Types, Connection } from 'mongoose'
 import { Question, QuestionDocument } from './schemas/question.schema'
 import { CreateQuestionDto } from './dtos/create-question.dto'
 import { VoteQuestionDto } from './dtos/vote-question.dto'
@@ -22,6 +22,7 @@ export class QuestionsService {
 
   constructor(
     @InjectModel(Question.name) private questionModel: Model<QuestionDocument>,
+    @InjectConnection() private readonly connection: Connection,
     private readonly aiMatcher: AiMatcherService,
     private readonly faqsService: FaqsService,
     private readonly intentDetector: IntentDetectorService,
@@ -30,11 +31,14 @@ export class QuestionsService {
     private readonly events: EventsGateway,
   ) {}
 
-  /**
-   * Top-level intent + AI match check.
-   * Returns early with an intent response, an AI-match response,
-   * or falls through so the caller can save to MongoDB.
-   */
+  // Resolve a category slug → ObjectId. Returns null if not found.
+  private async resolveCategorySlug(slug: string): Promise<Types.ObjectId | null> {
+    const doc = await this.connection
+      .collection('categories')
+      .findOne({ slug }, { projection: { _id: 1 } })
+    return doc ? doc._id as Types.ObjectId : null
+  }
+
   async checkIntentAndMatch(
     dto: CreateQuestionDto,
     userId: string,
@@ -71,7 +75,6 @@ export class QuestionsService {
     })
     const saved = await question.save()
 
-    // Embed the question for future "similar questions" lookups (fire-and-forget)
     const queryText = `${dto.title} ${dto.body}`
     this.embeddingsService.generateEmbedding(queryText).then((embedding) => {
       if (!embedding || embedding.length === 0) return
@@ -87,6 +90,7 @@ export class QuestionsService {
 
   async findAll(filters: {
     userId?: string
+    excludeUserId?: string
     role?: string
     status?: string
     search?: string
@@ -94,17 +98,19 @@ export class QuestionsService {
     page?: number
     limit?: number
   }): Promise<{ data: QuestionDocument[]; totalCount: number; page: number }> {
-    const { userId, role, status, search, category, page = 1, limit = 20 } = filters
+    const { userId, excludeUserId, role, status, search, category, page = 1, limit = 20 } = filters
     const query: Record<string, unknown> = {}
 
-    // intern sees only their own questions; admin+ sees all
-    if (role !== 'admin' && role !== 'superadmin') {
-      if (userId) {
+    // My Questions — intern sees only their own questions
+    if (userId && !excludeUserId) {
+      if (role !== 'admin' && role !== 'superadmin') {
         query.askedBy = new Types.ObjectId(userId)
-      } else {
-        // impossible ObjectId — returns nothing
-        query.askedBy = new Types.ObjectId('000000000000000000000000')
       }
+    }
+
+    // Resolve page — exclude the current user's own questions
+    if (excludeUserId) {
+      query.askedBy = { $ne: new Types.ObjectId(excludeUserId) }
     }
 
     if (status) {
@@ -119,8 +125,14 @@ export class QuestionsService {
     }
 
     if (category) {
-      // category param is a category slug; match against the populated category document's slug
-      query['category.slug'] = category
+      // category is a slug string — resolve to ObjectId first
+      const categoryId = await this.resolveCategorySlug(category)
+      if (categoryId) {
+        query.category = categoryId
+      } else {
+        // Unknown slug — return empty result set
+        query.category = new Types.ObjectId('000000000000000000000000')
+      }
     }
 
     const skip = (page - 1) * limit
@@ -158,7 +170,6 @@ export class QuestionsService {
     const question = await this.questionModel.findById(questionId).exec()
     if (!question) throw new NotFoundException('Question not found')
 
-    // Prevent self-voting
     if (question.askedBy.toString() === voterId) {
       throw new BadRequestException('Cannot vote on your own question.')
     }
@@ -167,7 +178,6 @@ export class QuestionsService {
 
     if (existing) {
       if (existing.value === newValue) {
-        // Same direction — remove vote (toggle off)
         question.votes = question.votes.filter((v) => v.userId.toString() !== voterId)
         if (newValue === 1) question.upvotes -= 1
         else question.downvotes -= 1
@@ -176,7 +186,6 @@ export class QuestionsService {
         this.events.emitVoteUpdated(questionId, 'question', result.upvotes, result.downvotes)
         return result
       } else {
-        // Opposite direction — flip vote
         existing.value = newValue
         if (newValue === 1) { question.upvotes += 1; question.downvotes -= 1 }
         else { question.downvotes += 1; question.upvotes -= 1 }
@@ -186,7 +195,6 @@ export class QuestionsService {
         return result
       }
     } else {
-      // New vote
       question.votes.push({ userId: voterOid, value: newValue })
       if (newValue === 1) question.upvotes += 1
       else question.downvotes += 1

@@ -27,6 +27,9 @@ async function fetchMyQuestions() {
 
 export function QuestionsPage() {
   const { user } = useAuth()
+  console.log('user object:', user)
+  console.log('user._id:', user?._id)
+  console.log('user.id:', (user as any)?.id)
 
   const { data, isLoading } = useQuery({
     queryKey: ['questions', 'my', user?._id],
